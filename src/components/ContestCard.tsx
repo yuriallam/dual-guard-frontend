@@ -1,5 +1,5 @@
-import { Clock, DollarSign, Users, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Clock, DollarSign, Users } from "lucide-react";
+import { ContestStatus, statusLabels, statusColors } from "@/types/contest";
 
 interface ContestCardProps {
   name: string;
@@ -7,7 +7,7 @@ interface ContestCardProps {
   prize: string;
   startDate: string;
   endDate: string;
-  status: 'live' | 'upcoming' | 'completed';
+  status: ContestStatus;
   participants: number;
   type: string;
 }
@@ -22,18 +22,6 @@ const ContestCard = ({
   participants,
   type,
 }: ContestCardProps) => {
-  const statusColors = {
-    live: 'bg-green-500/10 text-green-400 border-green-500/30',
-    upcoming: 'bg-cyan/10 text-cyan border-cyan/30',
-    completed: 'bg-muted text-muted-foreground border-border',
-  };
-
-  const statusLabels = {
-    live: 'Live',
-    upcoming: 'Upcoming',
-    completed: 'Completed',
-  };
-
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-card transition-all duration-300 hover:border-cyan/30 hover:shadow-elevated">
       {/* Gradient Hover Effect */}
@@ -54,7 +42,7 @@ const ContestCard = ({
             </div>
           </div>
           <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColors[status]}`}>
-            {status === 'live' && (
+            {status === 'active' && (
               <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
             )}
             {statusLabels[status]}
@@ -84,15 +72,17 @@ const ContestCard = ({
           </div>
         </div>
 
-        {/* Action */}
-        <div className="mt-6">
-          <Button 
-            variant={status === 'live' ? 'gradient' : 'outline'} 
-            className="w-full"
-          >
-            {status === 'live' ? 'Join Contest' : status === 'upcoming' ? 'View Details' : 'View Report'}
-            <ExternalLink className="ml-2 h-4 w-4" />
-          </Button>
+        {/* Status indicator bar */}
+        <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-muted">
+          <div 
+            className={`h-full rounded-full ${
+              status === 'active' ? 'bg-green-500 w-1/2' :
+              status === 'upcoming' ? 'bg-cyan w-0' :
+              status === 'judging' ? 'bg-yellow-500 w-3/4' :
+              status === 'escalations' ? 'bg-orange-500 w-7/8' :
+              'bg-gradient-primary w-full'
+            }`}
+          />
         </div>
       </div>
     </div>
