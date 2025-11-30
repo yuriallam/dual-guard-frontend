@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { auditors } from '@/data/auditors';
+import { allProtocols, allLanguages, Protocol, Language } from '@/types/auditor';
 import { Button } from '@/components/ui/button';
-import { Trophy, Bug, DollarSign, Target, Medal } from 'lucide-react';
+import { Trophy, Medal, Filter, X } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -12,20 +14,43 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-type SortField = 'rank' | 'highFindings' | 'totalEarnings' | 'winRate';
+type SortField = 'rank' | 'highFindings' | 'mediumFindings' | 'daysOfAuditing' | 'totalEarnings' | 'points';
 
 const Leaderboard = () => {
   const [sortBy, setSortBy] = useState<SortField>('rank');
+  const [protocolFilter, setProtocolFilter] = useState<Protocol | 'all'>('all');
+  const [languageFilter, setLanguageFilter] = useState<Language | 'all'>('all');
 
-  const sortedAuditors = [...auditors].sort((a, b) => {
+  const filteredAuditors = auditors.filter((auditor) => {
+    if (protocolFilter !== 'all' && !auditor.protocols.includes(protocolFilter)) {
+      return false;
+    }
+    if (languageFilter !== 'all' && !auditor.languages.includes(languageFilter)) {
+      return false;
+    }
+    return true;
+  });
+
+  const sortedAuditors = [...filteredAuditors].sort((a, b) => {
     switch (sortBy) {
       case 'highFindings':
         return b.highFindings - a.highFindings;
+      case 'mediumFindings':
+        return b.mediumFindings - a.mediumFindings;
+      case 'daysOfAuditing':
+        return b.daysOfAuditing - a.daysOfAuditing;
       case 'totalEarnings':
         return parseFloat(b.totalEarnings.replace(/[$,]/g, '')) - parseFloat(a.totalEarnings.replace(/[$,]/g, ''));
-      case 'winRate':
-        return b.winRate - a.winRate;
+      case 'points':
+        return b.points - a.points;
       default:
         return a.rank - b.rank;
     }
@@ -37,6 +62,13 @@ const Leaderboard = () => {
     if (rank === 3) return <Medal className="w-5 h-5 text-amber-600" />;
     return <span className="text-muted-foreground font-mono">#{rank}</span>;
   };
+
+  const clearFilters = () => {
+    setProtocolFilter('all');
+    setLanguageFilter('all');
+  };
+
+  const hasActiveFilters = protocolFilter !== 'all' || languageFilter !== 'all';
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,44 +85,66 @@ const Leaderboard = () => {
           </p>
         </div>
 
-        {/* Sort Filters */}
-        <div className="flex flex-wrap justify-center gap-3 mb-8">
-          <Button
-            variant={sortBy === 'rank' ? 'gradient' : 'outline'}
-            size="sm"
-            onClick={() => setSortBy('rank')}
-            className="gap-2"
-          >
-            <Trophy className="w-4 h-4" />
-            Overall Rank
-          </Button>
-          <Button
-            variant={sortBy === 'highFindings' ? 'gradient' : 'outline'}
-            size="sm"
-            onClick={() => setSortBy('highFindings')}
-            className="gap-2"
-          >
-            <Bug className="w-4 h-4" />
-            High Findings
-          </Button>
-          <Button
-            variant={sortBy === 'totalEarnings' ? 'gradient' : 'outline'}
-            size="sm"
-            onClick={() => setSortBy('totalEarnings')}
-            className="gap-2"
-          >
-            <DollarSign className="w-4 h-4" />
-            Total Earnings
-          </Button>
-          <Button
-            variant={sortBy === 'winRate' ? 'gradient' : 'outline'}
-            size="sm"
-            onClick={() => setSortBy('winRate')}
-            className="gap-2"
-          >
-            <Target className="w-4 h-4" />
-            Win Rate
-          </Button>
+        {/* Filters */}
+        <div className="glass-card rounded-xl p-4 mb-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Filter className="w-4 h-4" />
+              <span className="text-sm font-medium">Filters:</span>
+            </div>
+            
+            <div className="flex flex-wrap gap-3">
+              <Select
+                value={protocolFilter}
+                onValueChange={(value) => setProtocolFilter(value as Protocol | 'all')}
+              >
+                <SelectTrigger className="w-[140px] bg-background/50 border-border/50">
+                  <SelectValue placeholder="Protocol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Protocols</SelectItem>
+                  {allProtocols.map((protocol) => (
+                    <SelectItem key={protocol} value={protocol}>
+                      {protocol}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={languageFilter}
+                onValueChange={(value) => setLanguageFilter(value as Language | 'all')}
+              >
+                <SelectTrigger className="w-[140px] bg-background/50 border-border/50">
+                  <SelectValue placeholder="Language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Languages</SelectItem>
+                  {allLanguages.map((language) => (
+                    <SelectItem key={language} value={language}>
+                      {language}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="gap-1 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-3 h-3" />
+                  Clear
+                </Button>
+              )}
+            </div>
+
+            <div className="ml-auto text-sm text-muted-foreground">
+              {sortedAuditors.length} auditor{sortedAuditors.length !== 1 ? 's' : ''}
+            </div>
+          </div>
         </div>
 
         {/* Leaderboard Table */}
@@ -100,12 +154,36 @@ const Leaderboard = () => {
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead className="w-20 text-center">Rank</TableHead>
                 <TableHead>Auditor</TableHead>
-                <TableHead className="text-center">High</TableHead>
-                <TableHead className="text-center">Medium</TableHead>
-                <TableHead className="text-center">Low</TableHead>
-                <TableHead className="text-center">Contests</TableHead>
-                <TableHead className="text-center">Win Rate</TableHead>
-                <TableHead className="text-right">Earnings</TableHead>
+                <TableHead 
+                  className="text-center cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => setSortBy('highFindings')}
+                >
+                  <span className={sortBy === 'highFindings' ? 'text-cyan' : ''}>High</span>
+                </TableHead>
+                <TableHead 
+                  className="text-center cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => setSortBy('mediumFindings')}
+                >
+                  <span className={sortBy === 'mediumFindings' ? 'text-cyan' : ''}>Medium</span>
+                </TableHead>
+                <TableHead 
+                  className="text-center cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => setSortBy('daysOfAuditing')}
+                >
+                  <span className={sortBy === 'daysOfAuditing' ? 'text-cyan' : ''}>Days</span>
+                </TableHead>
+                <TableHead 
+                  className="text-right cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => setSortBy('totalEarnings')}
+                >
+                  <span className={sortBy === 'totalEarnings' ? 'text-cyan' : ''}>Earnings</span>
+                </TableHead>
+                <TableHead 
+                  className="text-center cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => setSortBy('points')}
+                >
+                  <span className={sortBy === 'points' ? 'text-cyan' : ''}>Pts</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -120,7 +198,7 @@ const Leaderboard = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-3">
+                    <Link to={`/auditor/${auditor.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                       <img
                         src={auditor.avatar}
                         alt={auditor.username}
@@ -128,11 +206,15 @@ const Leaderboard = () => {
                       />
                       <div>
                         <p className="font-semibold text-foreground">{auditor.username}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {auditor.highFindings + auditor.mediumFindings + auditor.lowFindings} total findings
-                        </p>
+                        <div className="flex gap-1 mt-1">
+                          {auditor.languages.slice(0, 2).map((lang) => (
+                            <span key={lang} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                              {lang}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-center">
                     <span className="inline-flex items-center justify-center w-10 h-6 rounded bg-red-500/10 text-red-400 text-sm font-medium">
@@ -144,19 +226,14 @@ const Leaderboard = () => {
                       {auditor.mediumFindings}
                     </span>
                   </TableCell>
-                  <TableCell className="text-center">
-                    <span className="inline-flex items-center justify-center w-10 h-6 rounded bg-blue-500/10 text-blue-400 text-sm font-medium">
-                      {auditor.lowFindings}
-                    </span>
-                  </TableCell>
                   <TableCell className="text-center text-muted-foreground">
-                    {auditor.contestsParticipated}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <span className="text-cyan font-medium">{auditor.winRate}%</span>
+                    {auditor.daysOfAuditing}
                   </TableCell>
                   <TableCell className="text-right">
                     <span className="text-gradient font-semibold">{auditor.totalEarnings}</span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className="text-cyan font-semibold">{auditor.points.toLocaleString()}</span>
                   </TableCell>
                 </TableRow>
               ))}
