@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Contests from "./pages/Contests";
 import ContestDetail from "./pages/ContestDetail";
 import Leaderboard from "./pages/Leaderboard";
+import AuditorProfile from "./pages/AuditorProfile";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import NotFound from "./pages/NotFound";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/contests" element={<Contests />} />
           <Route path="/contests/:id" element={<ContestDetail />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/auditor/:id" element={<AuditorProfile />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
