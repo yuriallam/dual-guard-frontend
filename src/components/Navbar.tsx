@@ -31,7 +31,7 @@ const Navbar = () => {
 
   const navLinks = [
     { name: "Contests", href: "/contests" },
-    { name: "Auditors", href: "#auditors" },
+    { name: "Leaderboard", href: "/leaderboard" },
     { name: "How it Works", href: "#how-it-works" },
     { name: "Docs", href: "#docs" },
   ];
