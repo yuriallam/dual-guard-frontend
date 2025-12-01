@@ -32,8 +32,7 @@ const Navbar = () => {
   const navLinks = [
     { name: "Contests", href: "/contests" },
     { name: "Leaderboard", href: "/leaderboard" },
-    { name: "How it Works", href: "#how-it-works" },
-    { name: "Docs", href: "#docs" },
+    { name: "For Protocols", href: "/for-protocols" },
   ];
 
   return (
