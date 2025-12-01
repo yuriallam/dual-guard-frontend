@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Clock, DollarSign, Users, FileCode, AlertTriangle, AlertCircle, Info, ExternalLink, Calendar } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -5,10 +6,12 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { contests } from "@/data/contests";
 import { statusLabels, statusColors } from "@/types/contest";
+import SubmitFindingDialog from "@/components/SubmitFindingDialog";
 
 const ContestDetail = () => {
   const { id } = useParams();
   const contest = contests.find(c => c.id === id);
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
 
   if (!contest) {
     return (
@@ -72,7 +75,7 @@ const ContestDetail = () => {
             
             <div className="flex gap-3">
               {contest.status === 'active' && (
-                <Button variant="gradient" size="lg">
+                <Button variant="gradient" size="lg" onClick={() => setSubmitDialogOpen(true)}>
                   Submit Finding
                   <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
@@ -224,6 +227,13 @@ const ContestDetail = () => {
       </section>
 
       <Footer />
+
+      {/* Submit Finding Dialog */}
+      <SubmitFindingDialog
+        open={submitDialogOpen}
+        onOpenChange={setSubmitDialogOpen}
+        contestName={contest.name}
+      />
     </div>
   );
 };
