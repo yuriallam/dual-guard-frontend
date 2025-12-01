@@ -1,17 +1,24 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Clock, DollarSign, Users, FileCode, AlertTriangle, AlertCircle, Info, ExternalLink, Calendar } from "lucide-react";
+import { ArrowLeft, Clock, DollarSign, Users, FileCode, AlertTriangle, AlertCircle, Info, ExternalLink, Calendar, Plus } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { contests } from "@/data/contests";
 import { statusLabels, statusColors } from "@/types/contest";
+import { Finding, Severity } from "@/types/finding";
+import { useFindings, useMockUserId } from "@/hooks/use-findings";
 import SubmitFindingDialog from "@/components/SubmitFindingDialog";
+import FindingsList from "@/components/FindingsList";
 
 const ContestDetail = () => {
   const { id } = useParams();
   const contest = contests.find(c => c.id === id);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [editingFinding, setEditingFinding] = useState<Finding | null>(null);
+  
+  const { findings, createFinding, updateFinding, deleteFinding, getUserFindings } = useFindings(id || "");
+  const currentUserId = useMockUserId();
 
   if (!contest) {
     return (
@@ -32,7 +39,38 @@ const ContestDetail = () => {
     );
   }
 
-  const showFindings = contest.status === 'judging' || contest.status === 'escalations' || contest.status === 'finished';
+  const isActive = contest.status === 'active';
+  const isJudging = contest.status === 'judging' || contest.status === 'escalations';
+  const showFindingsSummary = contest.status === 'judging' || contest.status === 'escalations' || contest.status === 'finished';
+
+  // Get appropriate findings based on contest status
+  const userFindings = getUserFindings();
+  const displayFindings = isJudging ? findings : userFindings;
+
+  const handleSubmitFinding = (data: { severity: Severity; title: string; content: string }) => {
+    if (editingFinding) {
+      updateFinding(editingFinding.id, data);
+      setEditingFinding(null);
+    } else {
+      createFinding(data);
+    }
+  };
+
+  const handleEditFinding = (finding: Finding) => {
+    setEditingFinding(finding);
+    setSubmitDialogOpen(true);
+  };
+
+  const handleDeleteFinding = (findingId: string) => {
+    deleteFinding(findingId);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setSubmitDialogOpen(open);
+    if (!open) {
+      setEditingFinding(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -74,20 +112,15 @@ const ContestDetail = () => {
             </div>
             
             <div className="flex gap-3">
-              {contest.status === 'active' && (
+              {isActive && (
                 <Button variant="gradient" size="lg" onClick={() => setSubmitDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
                   Submit Finding
-                  <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
               )}
               {contest.status === 'upcoming' && (
                 <Button variant="gradient" size="lg">
                   Register Interest
-                </Button>
-              )}
-              {(contest.status === 'judging' || contest.status === 'escalations') && (
-                <Button variant="gradient" size="lg">
-                  View Submissions
                 </Button>
               )}
               {contest.status === 'finished' && (
@@ -136,8 +169,42 @@ const ContestDetail = () => {
                 </div>
               )}
 
-              {/* Findings (if judging/escalations/finished) */}
-              {showFindings && (
+              {/* My Findings (Active contests) */}
+              {isActive && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-display text-xl font-semibold text-foreground">My Findings</h2>
+                    {userFindings.length > 0 && (
+                      <Button variant="outline" size="sm" onClick={() => setSubmitDialogOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        New Finding
+                      </Button>
+                    )}
+                  </div>
+                  <FindingsList
+                    findings={userFindings}
+                    isAnonymous={false}
+                    onEdit={handleEditFinding}
+                    onDelete={handleDeleteFinding}
+                  />
+                </div>
+              )}
+
+              {/* All Findings (Judging phase - anonymous) */}
+              {isJudging && (
+                <div>
+                  <h2 className="font-display text-xl font-semibold text-foreground mb-4">
+                    Submissions
+                  </h2>
+                  <FindingsList
+                    findings={displayFindings}
+                    isAnonymous={true}
+                  />
+                </div>
+              )}
+
+              {/* Findings Summary (if judging/escalations/finished) */}
+              {showFindingsSummary && (
                 <div className="rounded-xl border border-border bg-card p-6">
                   <h2 className="font-display text-xl font-semibold text-foreground">Findings Summary</h2>
                   <div className="mt-6 grid gap-4 sm:grid-cols-3">
@@ -231,8 +298,10 @@ const ContestDetail = () => {
       {/* Submit Finding Dialog */}
       <SubmitFindingDialog
         open={submitDialogOpen}
-        onOpenChange={setSubmitDialogOpen}
+        onOpenChange={handleDialogClose}
         contestName={contest.name}
+        onSubmit={handleSubmitFinding}
+        editingFinding={editingFinding}
       />
     </div>
   );
