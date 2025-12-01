@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertTriangle, AlertCircle, Info, ShieldAlert, Send } from "lucide-react";
 import {
   Dialog,
@@ -19,13 +19,14 @@ import {
 } from "@/components/ui/select";
 import MarkdownEditor from "./MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
-
-type Severity = "critical" | "high" | "medium" | "low" | "informational";
+import { Finding, Severity } from "@/types/finding";
 
 interface SubmitFindingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contestName: string;
+  onSubmit: (data: { severity: Severity; title: string; content: string }) => void;
+  editingFinding?: Finding | null;
 }
 
 const severityConfig: Record<Severity, { label: string; icon: typeof AlertTriangle; color: string; description: string }> = {
@@ -82,12 +83,27 @@ Manual Review
 Describe how to fix the vulnerability.
 `;
 
-const SubmitFindingDialog = ({ open, onOpenChange, contestName }: SubmitFindingDialogProps) => {
+const SubmitFindingDialog = ({ open, onOpenChange, contestName, onSubmit, editingFinding }: SubmitFindingDialogProps) => {
   const { toast } = useToast();
   const [severity, setSeverity] = useState<Severity | "">("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState(FINDING_TEMPLATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isEditing = !!editingFinding;
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editingFinding) {
+      setSeverity(editingFinding.severity);
+      setTitle(editingFinding.title);
+      setContent(editingFinding.content);
+    } else {
+      setSeverity("");
+      setTitle("");
+      setContent(FINDING_TEMPLATE);
+    }
+  }, [editingFinding, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,12 +119,16 @@ const SubmitFindingDialog = ({ open, onOpenChange, contestName }: SubmitFindingD
 
     setIsSubmitting(true);
     
-    // Simulate submission
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Simulate submission delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    onSubmit({ severity, title, content });
     
     toast({
-      title: "Finding submitted",
-      description: "Your finding has been submitted for review.",
+      title: isEditing ? "Finding updated" : "Finding submitted",
+      description: isEditing 
+        ? "Your finding has been updated successfully."
+        : "Your finding has been submitted for review.",
     });
     
     // Reset form
@@ -125,9 +145,13 @@ const SubmitFindingDialog = ({ open, onOpenChange, contestName }: SubmitFindingD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display text-xl">Submit Finding</DialogTitle>
+          <DialogTitle className="font-display text-xl">
+            {isEditing ? "Edit Finding" : "Submit Finding"}
+          </DialogTitle>
           <DialogDescription>
-            Submit a vulnerability finding for <span className="text-foreground font-medium">{contestName}</span>
+            {isEditing 
+              ? `Editing finding for ${contestName}`
+              : `Submit a vulnerability finding for ${contestName}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -207,12 +231,12 @@ const SubmitFindingDialog = ({ open, onOpenChange, contestName }: SubmitFindingD
               {isSubmitting ? (
                 <>
                   <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Submitting...
+                  {isEditing ? "Updating..." : "Submitting..."}
                 </>
               ) : (
                 <>
                   <Send className="mr-2 h-4 w-4" />
-                  Submit Finding
+                  {isEditing ? "Update Finding" : "Submit Finding"}
                 </>
               )}
             </Button>
