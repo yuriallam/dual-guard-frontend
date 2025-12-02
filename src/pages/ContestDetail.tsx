@@ -1,15 +1,19 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Clock, DollarSign, Users, FileCode, AlertTriangle, AlertCircle, Info, ExternalLink, Calendar, Plus } from "lucide-react";
+import { ArrowLeft, Clock, DollarSign, Users, FileCode, AlertTriangle, AlertCircle, Info, ExternalLink, Calendar, Plus, Scale } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { contests } from "@/data/contests";
 import { statusLabels, statusColors } from "@/types/contest";
 import { Finding, Severity } from "@/types/finding";
+import { ReviewStatus } from "@/types/judge-review";
 import { useFindings, useMockUserId } from "@/hooks/use-findings";
+import { useJudgeReviews } from "@/hooks/use-judge-reviews";
 import SubmitFindingDialog from "@/components/SubmitFindingDialog";
 import FindingsList from "@/components/FindingsList";
+import JudgeReviewPanel from "@/components/JudgeReviewPanel";
 
 const ContestDetail = () => {
   const { id } = useParams();
@@ -18,7 +22,11 @@ const ContestDetail = () => {
   const [editingFinding, setEditingFinding] = useState<Finding | null>(null);
   
   const { findings, createFinding, updateFinding, deleteFinding, getUserFindings } = useFindings(id || "");
+  const { reviews, getReviewForFinding, upsertReview } = useJudgeReviews(id || "");
   const currentUserId = useMockUserId();
+  
+  // Mock: check if current user is a judge (for demo, we'll use a toggle or assume judge role in judging phase)
+  const [isJudgeView, setIsJudgeView] = useState(false);
 
   if (!contest) {
     return (
@@ -70,6 +78,14 @@ const ContestDetail = () => {
     if (!open) {
       setEditingFinding(null);
     }
+  };
+
+  const handleReviewUpdate = (findingId: string, data: {
+    judgeSelectedSeverity: Severity;
+    comment: string;
+    status: ReviewStatus;
+  }) => {
+    upsertReview(findingId, data);
   };
 
   return (
@@ -190,16 +206,39 @@ const ContestDetail = () => {
                 </div>
               )}
 
-              {/* All Findings (Judging phase - anonymous) */}
+              {/* Judging phase - tabbed view for auditor vs judge */}
               {isJudging && (
                 <div>
-                  <h2 className="font-display text-xl font-semibold text-foreground mb-4">
-                    Submissions
-                  </h2>
-                  <FindingsList
-                    findings={displayFindings}
-                    isAnonymous={true}
-                  />
+                  <Tabs defaultValue="submissions" className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="font-display text-xl font-semibold text-foreground">
+                        Submissions
+                      </h2>
+                      <TabsList>
+                        <TabsTrigger value="submissions">Auditor View</TabsTrigger>
+                        <TabsTrigger value="judge" className="gap-2">
+                          <Scale className="h-4 w-4" />
+                          Judge View
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
+                    
+                    <TabsContent value="submissions">
+                      <FindingsList
+                        findings={displayFindings}
+                        isAnonymous={true}
+                      />
+                    </TabsContent>
+                    
+                    <TabsContent value="judge">
+                      <JudgeReviewPanel
+                        findings={findings}
+                        reviews={reviews}
+                        onReviewUpdate={handleReviewUpdate}
+                        getReviewForFinding={getReviewForFinding}
+                      />
+                    </TabsContent>
+                  </Tabs>
                 </div>
               )}
 
