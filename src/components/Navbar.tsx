@@ -62,7 +62,7 @@ const Navbar = () => {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <img src={logo} alt="Dualguard" className="h-10 w-10" />
+            <img src={logo} alt="Dualguard" className="h-12 w-12" />
             <span className="font-display text-xl font-bold text-gradient">Dualguard</span>
           </Link>
 
