@@ -1,44 +1,151 @@
-import { createContext, useContext, useState, ReactNode } from "react";
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-}
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+} from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCurrentUser, useLogin, useLogout } from '@/hooks/api';
+import { tokenManager } from '@/lib/api/client';
+import type { User } from '@/types/entities/user';
+import type { LoginPayload } from '@/types/api/auth';
 
 interface AuthContextType {
   user: User | null;
   isSignedIn: boolean;
-  signIn: () => void;
-  signOut: () => void;
-  toggleAuth: () => void;
+  isLoading: boolean;
+  login: (payload: LoginPayload) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const mockUser: User = {
-  id: "1",
-  name: "John Doe",
-  email: "john@example.com",
-  avatar: undefined,
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const signIn = () => setUser(mockUser);
-  const signOut = () => setUser(null);
-  const toggleAuth = () => setUser(user ? null : mockUser);
+  // React Query hooks
+  // Only fetch user if tokens exist
+  const hasTokens = tokenManager.hasTokens();
+  const {
+    data: currentUser,
+    isLoading: isLoadingUser,
+    error: userError,
+    refetch: refetchUser,
+  } = useCurrentUser();
+
+  const loginMutation = useLogin();
+  const logoutMutation = useLogout();
+
+  // Update user state when query data changes
+  useEffect(() => {
+    if (currentUser) {
+      setUser(currentUser);
+    } else if (userError && !isLoadingUser) {
+      // If there's an error and we're not loading, user is not authenticated
+      setUser(null);
+    }
+  }, [currentUser, userError, isLoadingUser]);
+
+  // Initialize: Check if user has tokens and fetch user data
+  useEffect(() => {
+    const initializeAuth = async () => {
+      // Check if tokens exist
+      if (hasTokens) {
+        try {
+          // Try to fetch user data
+          await refetchUser();
+        } catch (error) {
+          // If fetch fails, clear tokens
+          tokenManager.clearTokens();
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+      setIsInitialized(true);
+    };
+
+    initializeAuth();
+  }, [hasTokens, refetchUser]);
+
+  // Listen for auth signout events (from token refresh failures, etc.)
+  useEffect(() => {
+    const handleSignOut = () => {
+      setUser(null);
+      queryClient.clear();
+    };
+
+    window.addEventListener('auth:signout', handleSignOut);
+    return () => {
+      window.removeEventListener('auth:signout', handleSignOut);
+    };
+  }, [queryClient]);
+
+  // Login function
+  const login = useCallback(
+    async (payload: LoginPayload) => {
+      try {
+        await loginMutation.mutateAsync(payload);
+        // After successful login, fetch user data
+        const userData = await refetchUser();
+        if (userData.data) {
+          setUser(userData.data);
+        }
+      } catch (error) {
+        // Error is handled by the mutation
+        throw error;
+      }
+    },
+    [loginMutation, refetchUser],
+  );
+
+  // Logout function
+  const logout = useCallback(async () => {
+    try {
+      await logoutMutation.mutateAsync();
+    } catch (error) {
+      // Even if logout fails, clear local state
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      queryClient.clear();
+    }
+  }, [logoutMutation, queryClient]);
+
+  // Refresh user data
+  const refreshUser = useCallback(async () => {
+    try {
+      const result = await refetchUser();
+      if (result.data) {
+        setUser(result.data);
+      }
+    } catch (error) {
+      // If refresh fails, user might be logged out
+      setUser(null);
+      throw error;
+    }
+  }, [refetchUser]);
+
+  // Loading state: true if initializing or loading user
+  const isLoading = !isInitialized || isLoadingUser;
+
+  // User is signed in if we have a user object
+  const isSignedIn = !!user;
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isSignedIn: !!user,
-        signIn,
-        signOut,
-        toggleAuth,
+        isSignedIn,
+        isLoading,
+        login,
+        logout,
+        refreshUser,
       }}
     >
       {children}
@@ -49,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

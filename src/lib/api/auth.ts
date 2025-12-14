@@ -29,8 +29,9 @@ export const authApi = {
         },
       },
     );
-    // Store tokens
-    tokenManager.setTokens(response.accessToken, response.refreshToken);
+    // Tokens are set by backend via httpOnly cookies (Set-Cookie header)
+    // No need to store them manually - browser handles it automatically
+    // tokenManager.setTokens is a no-op when using cookie-based auth
     return response;
   },
 
@@ -90,8 +91,8 @@ export const authApi = {
         },
       },
     );
-    // Store new tokens
-    tokenManager.setTokens(response.accessToken, response.refreshToken);
+    // Tokens are set by backend via httpOnly cookies (Set-Cookie header)
+    // No need to store them manually - browser handles it automatically
     return response;
   },
 

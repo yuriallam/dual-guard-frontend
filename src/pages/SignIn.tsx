@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Lock, Wallet } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import logo from "@/assets/dualguard-logo.png";
 
@@ -12,10 +14,49 @@ const SignIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleEmailSignIn = (e: React.FormEvent) => {
+  // Get the page the user was trying to access before being redirected
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
+
+  const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Sign in with:", email, password);
+    
+    if (!email || !password) {
+      toast({
+        title: "Missing fields",
+        description: "Please enter both email and password.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await login({ email, password });
+      toast({
+        title: "Success",
+        description: "You have been signed in successfully.",
+      });
+      // Redirect to the page they were trying to access, or home
+      navigate(from, { replace: true });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to sign in. Please check your credentials.";
+      toast({
+        title: "Sign in failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleWalletConnect = async () => {
@@ -109,8 +150,13 @@ const SignIn = () => {
                 </div>
               </div>
 
-              <Button type="submit" variant="gradient" className="w-full h-12">
-                Sign In
+              <Button
+                type="submit"
+                variant="gradient"
+                className="w-full h-12"
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
           </div>
