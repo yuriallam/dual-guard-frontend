@@ -1,33 +1,193 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import logo from "@/assets/dualguard-logo.png";
+import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, Lock, User, Wallet } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import logo from "@/assets/dualguard-logo.png";
+import { useSignUp } from "@/hooks/api/auth";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { ApiClientError } from "@/lib/api/client";
+import { Lock, Mail, User, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const SignUp = () => {
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [errors, setErrors] = useState<{
+    username?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
+
+  const { mutate: signUp, isPending: isSigningUp } = useSignUp();
+  const { isSignedIn, isLoading: isAuthLoading } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!isAuthLoading && isSignedIn) {
+      navigate("/", { replace: true });
+    }
+  }, [isSignedIn, isAuthLoading, navigate]);
+
+  // Show loading while checking auth
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if already authenticated (will redirect)
+  if (isSignedIn) {
+    return null;
+  }
+
+  // Validate username: 3-30 characters, alphanumeric with underscores and hyphens only
+  const validateUsername = (value: string): string | undefined => {
+    if (!value) {
+      return "Username is required";
+    }
+    if (value.length < 3 || value.length > 30) {
+      return "Username must be between 3 and 30 characters";
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
+      return "Username can only contain letters, numbers, underscores, and hyphens";
+    }
+    return undefined;
+  };
+
+  // Validate email
+  const validateEmail = (value: string): string | undefined => {
+    if (!value) {
+      return "Email is required";
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      return "Please enter a valid email address";
+    }
+    return undefined;
+  };
+
+  // Validate password: 8-128 characters
+  const validatePassword = (value: string): string | undefined => {
+    if (!value) {
+      return "Password is required";
+    }
+    if (value.length < 8 || value.length > 128) {
+      return "Password must be between 8 and 128 characters";
+    }
+    return undefined;
+  };
 
   const handleEmailSignUp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      alert("Passwords don't match");
+
+    // Clear previous errors
+    setErrors({});
+
+    // Validate all fields
+    const usernameError = validateUsername(username);
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+    let confirmPasswordError: string | undefined;
+
+    if (!confirmPassword) {
+      confirmPasswordError = "Please confirm your password";
+    } else if (password !== confirmPassword) {
+      confirmPasswordError = "Passwords don't match";
+    }
+
+    if (usernameError || emailError || passwordError || confirmPasswordError) {
+      setErrors({
+        username: usernameError,
+        email: emailError,
+        password: passwordError,
+        confirmPassword: confirmPasswordError,
+      });
       return;
     }
+
     if (!acceptTerms) {
-      alert("Please accept the terms and conditions");
+      toast({
+        title: "Terms required",
+        description: "Please accept the terms and conditions to continue.",
+        variant: "destructive",
+      });
       return;
     }
-    console.log("Sign up with:", { name, email, password });
+
+    // Submit signup
+    signUp(
+      {
+        username,
+        email: email.toLowerCase().trim(),
+        password,
+      },
+      {
+        onSuccess: (response) => {
+          // Redirect to check-email page with email info
+          navigate("/check-email", {
+            state: {
+              email: email.toLowerCase().trim(),
+              message: response.message || "Please check your email to verify your account.",
+            },
+          });
+        },
+        onError: (error: unknown) => {
+          // Extract error message from ApiClientError or generic Error
+          let errorMessage = "Failed to create account. Please try again.";
+          let status: number | undefined;
+
+          if (error instanceof ApiClientError) {
+            status = error.status;
+            errorMessage = error.message;
+          } else if (error instanceof Error) {
+            errorMessage = error.message;
+          }
+
+          // Handle specific error cases based on status code
+          if (status === 409) {
+            toast({
+              title: "Account already exists",
+              description: "This email or username is already registered. Please sign in instead.",
+              variant: "destructive",
+            });
+          } else if (status === 429) {
+            toast({
+              title: "Too many requests",
+              description: "Please wait a moment before trying again.",
+              variant: "destructive",
+            });
+          } else if (status === 400) {
+            toast({
+              title: "Validation error",
+              description: errorMessage || "Please check your input and try again.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Sign up failed",
+              description: errorMessage,
+              variant: "destructive",
+            });
+          }
+        },
+      }
+    );
   };
 
   const handleWalletConnect = async () => {
@@ -87,18 +247,30 @@ const SignUp = () => {
             {/* Email Form */}
             <form onSubmit={handleEmailSignUp} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="username">Username</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    id="name"
+                    id="username"
                     type="text"
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10 bg-background/50 border-border/50 focus:border-primary"
+                    placeholder="auditor1"
+                    value={username}
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      if (errors.username) {
+                        setErrors((prev) => ({ ...prev, username: undefined }));
+                      }
+                    }}
+                    className={`pl-10 bg-background/50 border-border/50 focus:border-primary ${errors.username ? "border-destructive" : ""
+                      }`}
                   />
                 </div>
+                {errors.username && (
+                  <p className="text-sm text-destructive">{errors.username}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  3-30 characters, letters, numbers, underscores, and hyphens only
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -110,10 +282,19 @@ const SignUp = () => {
                     type="email"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 bg-background/50 border-border/50 focus:border-primary"
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errors.email) {
+                        setErrors((prev) => ({ ...prev, email: undefined }));
+                      }
+                    }}
+                    className={`pl-10 bg-background/50 border-border/50 focus:border-primary ${errors.email ? "border-destructive" : ""
+                      }`}
                   />
                 </div>
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -125,10 +306,26 @@ const SignUp = () => {
                     type="password"
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 bg-background/50 border-border/50 focus:border-primary"
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errors.password) {
+                        setErrors((prev) => ({ ...prev, password: undefined }));
+                      }
+                      // Clear confirm password error if passwords now match
+                      if (e.target.value === confirmPassword && errors.confirmPassword) {
+                        setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                      }
+                    }}
+                    className={`pl-10 bg-background/50 border-border/50 focus:border-primary ${errors.password ? "border-destructive" : ""
+                      }`}
                   />
                 </div>
+                {errors.password && (
+                  <p className="text-sm text-destructive">{errors.password}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  8-128 characters
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -140,10 +337,19 @@ const SignUp = () => {
                     type="password"
                     placeholder="••••••••"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10 bg-background/50 border-border/50 focus:border-primary"
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      if (errors.confirmPassword) {
+                        setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                      }
+                    }}
+                    className={`pl-10 bg-background/50 border-border/50 focus:border-primary ${errors.confirmPassword ? "border-destructive" : ""
+                      }`}
                   />
                 </div>
+                {errors.confirmPassword && (
+                  <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                )}
               </div>
 
               <div className="flex items-start gap-2">
@@ -165,8 +371,13 @@ const SignUp = () => {
                 </Label>
               </div>
 
-              <Button type="submit" variant="gradient" className="w-full h-12">
-                Create Account
+              <Button
+                type="submit"
+                variant="gradient"
+                className="w-full h-12"
+                disabled={isSigningUp}
+              >
+                {isSigningUp ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
           </div>

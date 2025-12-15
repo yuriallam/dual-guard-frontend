@@ -1,5 +1,5 @@
-import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
+import { Navigate, useLocation } from 'react-router-dom';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -42,11 +42,11 @@ export function ProtectedRoute({
     );
   }
 
-  // If auth is not required but user is signed in, you might want to redirect
+  // If auth is not required but user is signed in, redirect away from auth pages
   // For example, redirect logged-in users away from login/signup pages
   if (!requireAuth && isSignedIn) {
-    // Optional: redirect authenticated users away from auth pages
-    // return <Navigate to="/" replace />;
+    // Redirect authenticated users away from auth pages to home
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

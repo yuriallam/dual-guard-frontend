@@ -31,26 +31,25 @@ export const tokenManager = {
 };
 
 // Refresh access token
-// When using cookie-based auth, refresh token is in httpOnly cookie
-// Backend will automatically use it when we call the refresh endpoint
-const refreshAccessToken = async (): Promise<string> => {
-  // Check if refresh token cookie exists
-  if (!tokenStorage.hasTokens()) {
+// Uses refresh token from cookie and sends it in the request body
+// Returns the new tokens or throws an error
+const refreshAccessToken = async (): Promise<{ accessToken: string; refreshToken: string }> => {
+  // Get refresh token from cookie
+  const refreshToken = tokenStorage.getRefreshToken();
+  if (!refreshToken) {
     throw new ApiClientError('No refresh token available', 401);
   }
 
   try {
-    // For cookie-based auth, refresh token is in httpOnly cookie
-    // Backend reads it from the cookie automatically
-    // We don't need to send it in the body (but some backends might expect it)
+    // Send refresh token in body (as per API spec) and also via cookie
+    // Backend can read from either location
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': navigator.userAgent,
       },
-      // Don't send refreshToken in body - backend reads it from httpOnly cookie
-      body: JSON.stringify({}),
+      body: JSON.stringify({ refreshToken }),
       credentials: 'include', // Essential: Include cookies for cookie-based auth
     });
 
@@ -59,10 +58,30 @@ const refreshAccessToken = async (): Promise<string> => {
       throw new ApiClientError('Failed to refresh token', response.status);
     }
 
-    // Backend sets new tokens via Set-Cookie header in response
-    // Browser automatically stores them - we don't need to do anything
-    // Return a flag indicating success (actual token is in httpOnly cookie)
-    return 'refreshed';
+    // Parse response to get new tokens
+    let tokenData: { accessToken: string; refreshToken: string };
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        tokenData = await response.json();
+      } else {
+        const text = await response.text();
+        tokenData = text ? JSON.parse(text) : {};
+      }
+    } catch (error) {
+      throw new ApiClientError('Failed to parse refresh token response', response.status);
+    }
+
+    // Store new tokens in cookies
+    if (tokenData.accessToken && tokenData.refreshToken) {
+      tokenStorage.setTokens(tokenData.accessToken, tokenData.refreshToken);
+    } else {
+      // If backend sets tokens via Set-Cookie headers, they're already stored
+      // But we should still have them in the response body
+      throw new ApiClientError('No tokens in refresh response', response.status);
+    }
+
+    return tokenData;
   } catch (error) {
     tokenStorage.clearTokens();
     if (error instanceof ApiClientError) {
@@ -88,14 +107,13 @@ export const apiClient = async <T>(
     ...fetchConfig.headers,
   };
 
-  // Add auth token if not skipped
-  // Note: With cookie-based auth, tokens are sent automatically by the browser
-  // via httpOnly cookies when credentials: 'include' is set
-  // We don't need to manually add Authorization header for cookie-based auth
-  // The backend reads the token from the cookie automatically
+  // For protected API calls, tokens are sent via cookies
+  // Cookies are automatically included with credentials: 'include'
+  // The backend reads the token from the cookie (accessToken or access_token)
+  // No need to manually add Authorization header - cookies handle authentication
   if (!skipAuth) {
-    // For cookie-based auth, tokens are sent automatically via cookies
-    // No need to manually add Authorization header
+    // Tokens are stored in cookies and sent automatically
+    // Backend will read accessToken or access_token cookie
   }
 
   // Make request
@@ -116,27 +134,42 @@ export const apiClient = async <T>(
   // Handle 401 - try to refresh token and retry
   if (response.status === 401 && !skipAuth && !skipErrorHandling) {
     try {
-      // Refresh token - backend reads refresh token from httpOnly cookie
-      // Backend sets new access token via Set-Cookie header
+      // Refresh token - get new access and refresh tokens
       await refreshAccessToken();
-      // Retry the original request - new access token is in httpOnly cookie
-      // Browser automatically sends it with credentials: 'include'
-      // No need to manually set Authorization header
-      response = await fetch(url, {
+      
+      // Retry the original request with new tokens (now in cookies)
+      // The new access token cookie will be sent automatically
+      // Preserve all original request config (method, body, headers, etc.)
+      const retryResponse = await fetch(url, {
         ...fetchConfig,
         headers,
-        credentials: 'include', // Essential: Include cookies
+        credentials: 'include', // Essential: Include cookies with new tokens
       });
+
+      // If retry still returns 401, authentication failed
+      if (retryResponse.status === 401) {
+        tokenStorage.clearTokens();
+        window.dispatchEvent(new CustomEvent('auth:signout'));
+        throw new ApiClientError('Authentication failed after token refresh', 401);
+      }
+
+      // Use the retry response for further processing
+      response = retryResponse;
     } catch (refreshError) {
       // Refresh failed, clear cookies and throw
       tokenStorage.clearTokens();
       // Dispatch event for auth state change
       window.dispatchEvent(new CustomEvent('auth:signout'));
+      
+      // Re-throw if it's already an ApiClientError, otherwise wrap it
+      if (refreshError instanceof ApiClientError) {
+        throw refreshError;
+      }
       throw new ApiClientError('Authentication failed', 401);
     }
   }
 
-  // Parse response
+  // Parse response (after potential retry)
   let data: T | ApiError;
   try {
     const contentType = response.headers.get('content-type');

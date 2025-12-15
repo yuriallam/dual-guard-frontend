@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/lib/api';
 import { tokenManager } from '@/lib/api/client';
+import { loadUserFromStorage, saveUserToStorage } from '@/lib/api/user-storage';
 import { queryKeys } from './query-keys';
 import type {
   LoginPayload,
@@ -11,13 +12,29 @@ import type {
 import type { User } from '@/types/entities/user';
 
 // Get current authenticated user
+// Uses cached data from localStorage for instant display, but always fetches fresh data
 export const useCurrentUser = () => {
+  // Load cached user data for initial display
+  const cachedUser = loadUserFromStorage();
+
   return useQuery({
     queryKey: queryKeys.auth.me(),
-    queryFn: () => authApi.getCurrentUser(),
+    queryFn: async () => {
+      const user = await authApi.getCurrentUser();
+      // Save fresh user data to localStorage
+      saveUserToStorage(user);
+      return user;
+    },
     enabled: tokenManager.hasTokens(), // Only fetch if tokens exist
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // Always consider data stale to fetch fresh data
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    // Use cached data as initial data for instant display
+    initialData: cachedUser || undefined,
+    // Refetch on mount to get fresh data
+    refetchOnMount: true,
+    // Refetch on window focus to keep data fresh
+    refetchOnWindowFocus: true,
   });
 };
 

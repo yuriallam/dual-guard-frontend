@@ -1,24 +1,26 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/hooks/use-auth";
 import { createQueryClient } from "@/lib/query-client";
-import Index from "./pages/Index";
-import Contests from "./pages/Contests";
-import ContestDetail from "./pages/ContestDetail";
-import Leaderboard from "./pages/Leaderboard";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import ScrollToTop from "./components/ScrollToTop";
+import Account from "./pages/Account";
 import AuditorProfile from "./pages/AuditorProfile";
+import CheckEmail from "./pages/CheckEmail";
+import ContestDetail from "./pages/ContestDetail";
+import Contests from "./pages/Contests";
+import EmailVerified from "./pages/EmailVerified";
 import ForProtocols from "./pages/ForProtocols";
+import Index from "./pages/Index";
+import Leaderboard from "./pages/Leaderboard";
+import NotFound from "./pages/NotFound";
+import Settings from "./pages/Settings";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
-import Account from "./pages/Account";
-import Settings from "./pages/Settings";
-import EmailVerified from "./pages/EmailVerified";
-import NotFound from "./pages/NotFound";
-import ScrollToTop from "./components/ScrollToTop";
+import VerifyEmail from "./pages/VerifyEmail";
 
 const queryClient = createQueryClient();
 
@@ -39,6 +41,8 @@ const App = () => (
             <Route path="/for-protocols" element={<ForProtocols />} />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/signup" element={<SignUp />} />
+            <Route path="/check-email" element={<CheckEmail />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route
               path="/account"
               element={

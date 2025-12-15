@@ -12,6 +12,12 @@ const getCookie = (name: string): string | null => {
   return null;
 };
 
+const setCookie = (name: string, value: string, days: number = 7): void => {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+};
+
 const deleteCookie = (name: string): void => {
   document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
 };
@@ -20,31 +26,40 @@ const deleteCookie = (name: string): void => {
 // Note: If backend uses httpOnly cookies, we can't read their values
 // We only check for their existence or rely on backend to set them
 export const tokenStorage = {
-  // Check if access token cookie exists
-  // Note: If using httpOnly cookies, we can't read the value
-  // This just checks if the cookie is present
+  // Get access token from cookie
+  // Returns the actual token value if available, or null
   getAccessToken: (): string | null => {
-    // For httpOnly cookies, we can't read the value
-    // Return a flag indicating cookie exists, or null
-    // The actual token will be sent automatically by the browser
-    const cookieExists = getCookie('accessToken') !== null;
-    return cookieExists ? 'cookie' : null; // Return a flag, not the actual token
+    // Try common cookie names
+    return (
+      getCookie('accessToken') ||
+      getCookie('access_token') ||
+      getCookie('token') ||
+      null
+    );
   },
 
-  // Check if refresh token cookie exists
+  // Get refresh token from cookie
+  // Returns the actual token value if available, or null
   getRefreshToken: (): string | null => {
-    // For httpOnly cookies, we can't read the value
-    // Return a flag indicating cookie exists, or null
-    const cookieExists = getCookie('refreshToken') !== null;
-    return cookieExists ? 'cookie' : null; // Return a flag, not the actual token
+    // Try common cookie names
+    return (
+      getCookie('refreshToken') ||
+      getCookie('refresh_token') ||
+      null
+    );
   },
 
-  // Store tokens - NOT USED when backend sets httpOnly cookies
-  // Tokens are set by backend via Set-Cookie header
-  // This is kept for compatibility but does nothing
-  setTokens: (_accessToken: string, _refreshToken: string): void => {
-    // Do nothing - tokens are managed by backend via cookies
-    // Backend sets cookies via Set-Cookie header in response
+  // Store tokens in cookies
+  // If backend sets httpOnly cookies via Set-Cookie header, those take precedence
+  // Otherwise, we store tokens in cookies so they're sent with every request
+  setTokens: (accessToken: string, refreshToken: string): void => {
+    // Store tokens in cookies so they're automatically sent with requests
+    // Using SameSite=Lax for security (prevents CSRF while allowing normal usage)
+    setCookie('accessToken', accessToken, 7); // 7 days
+    setCookie('refreshToken', refreshToken, 30); // 30 days for refresh token
+    // Also set common cookie names for compatibility
+    setCookie('access_token', accessToken, 7);
+    setCookie('refresh_token', refreshToken, 30);
   },
 
   // Clear tokens - delete cookies

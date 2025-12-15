@@ -1,19 +1,18 @@
-import { api } from './client';
-import { API_ENDPOINTS } from './config';
 import type {
   LoginPayload,
-  SignUpPayload,
-  TokenResponse,
-  SignUpResponse,
+  LogoutResponse,
   RefreshTokenPayload,
-  VerifyEmailPayload,
-  VerifyEmailResponse,
   ResendVerificationEmailPayload,
   ResendVerificationEmailResponse,
-  LogoutResponse,
-} from '@/types/api/auth';
-import type { User } from '@/types/entities/user';
-import { tokenManager } from './client';
+  SignUpPayload,
+  SignUpResponse,
+  TokenResponse,
+  VerifyEmailPayload,
+  VerifyEmailResponse,
+} from "@/types/api/auth";
+import type { User } from "@/types/entities/user";
+import { api, tokenManager } from "./client";
+import { API_ENDPOINTS } from "./config";
 
 // Auth API client
 export const authApi = {
@@ -25,23 +24,24 @@ export const authApi = {
       {
         skipAuth: true,
         headers: {
-          'User-Agent': navigator.userAgent,
+          "User-Agent": navigator.userAgent,
         },
-      },
+      }
     );
-    // Tokens are set by backend via httpOnly cookies (Set-Cookie header)
-    // No need to store them manually - browser handles it automatically
-    // tokenManager.setTokens is a no-op when using cookie-based auth
+    // Store tokens in cookies so they're sent with every request
+    // If backend also sets httpOnly cookies via Set-Cookie, those will be used
+    // Otherwise, our cookies will be sent automatically
+    if (response.accessToken && response.refreshToken) {
+      tokenManager.setTokens(response.accessToken, response.refreshToken);
+    }
     return response;
   },
 
   // Sign up
   signUp: async (payload: SignUpPayload): Promise<SignUpResponse> => {
-    return api.post<SignUpResponse>(
-      API_ENDPOINTS.AUTH.SIGN_UP,
-      payload,
-      { skipAuth: true },
-    );
+    return api.post<SignUpResponse>(API_ENDPOINTS.AUTH.SIGN_UP, payload, {
+      skipAuth: true,
+    });
   },
 
   // Logout (sign out)
@@ -50,11 +50,11 @@ export const authApi = {
       await api.post<LogoutResponse>(API_ENDPOINTS.AUTH.LOGOUT);
     } catch (error) {
       // Even if the request fails, clear local tokens
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     } finally {
       tokenManager.clearTokens();
       // Dispatch event for auth state change
-      window.dispatchEvent(new CustomEvent('auth:signout'));
+      window.dispatchEvent(new CustomEvent("auth:signout"));
     }
   },
 
@@ -64,11 +64,11 @@ export const authApi = {
       await api.post<LogoutResponse>(API_ENDPOINTS.AUTH.LOGOUT_ALL);
     } catch (error) {
       // Even if the request fails, clear local tokens
-      console.error('Logout all error:', error);
+      console.error("Logout all error:", error);
     } finally {
       tokenManager.clearTokens();
       // Dispatch event for auth state change
-      window.dispatchEvent(new CustomEvent('auth:signout'));
+      window.dispatchEvent(new CustomEvent("auth:signout"));
     }
   },
 
@@ -79,7 +79,7 @@ export const authApi = {
 
   // Refresh token
   refreshToken: async (
-    payload: RefreshTokenPayload,
+    payload: RefreshTokenPayload
   ): Promise<TokenResponse> => {
     const response = await api.post<TokenResponse>(
       API_ENDPOINTS.AUTH.REFRESH_TOKEN,
@@ -87,35 +87,42 @@ export const authApi = {
       {
         skipAuth: true,
         headers: {
-          'User-Agent': navigator.userAgent,
+          "User-Agent": navigator.userAgent,
         },
-      },
+      }
     );
-    // Tokens are set by backend via httpOnly cookies (Set-Cookie header)
-    // No need to store them manually - browser handles it automatically
+    // Store new tokens in cookies
+    if (response.accessToken && response.refreshToken) {
+      tokenManager.setTokens(response.accessToken, response.refreshToken);
+    }
     return response;
   },
 
   // Verify email
   verifyEmail: async (
-    payload: VerifyEmailPayload,
+    payload: VerifyEmailPayload
   ): Promise<VerifyEmailResponse> => {
-    return api.post<VerifyEmailResponse>(
+    const response = await api.post<VerifyEmailResponse>(
       API_ENDPOINTS.AUTH.VERIFY_EMAIL,
       payload,
-      { skipAuth: true },
+      { skipAuth: true }
     );
+    // If tokens are returned in response, store them
+    // Otherwise, tokens are set by backend via httpOnly cookies (Set-Cookie header)
+    if (response.accessToken && response.refreshToken) {
+      tokenManager.setTokens(response.accessToken, response.refreshToken);
+    }
+    return response;
   },
 
   // Resend verification email
   resendVerificationEmail: async (
-    payload: ResendVerificationEmailPayload,
+    payload: ResendVerificationEmailPayload
   ): Promise<ResendVerificationEmailResponse> => {
     return api.post<ResendVerificationEmailResponse>(
       API_ENDPOINTS.AUTH.RESEND_VERIFICATION,
       payload,
-      { skipAuth: true },
+      { skipAuth: true }
     );
   },
 };
-

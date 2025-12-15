@@ -36,9 +36,12 @@ export interface VerifyEmailPayload {
 }
 
 // Email verification response
+// May include tokens if backend returns them, or just a success message
 export interface VerifyEmailResponse {
   success: true;
   message: string;
+  accessToken?: string;
+  refreshToken?: string;
 }
 
 // Resend verification email payload
@@ -56,4 +59,3 @@ export interface ResendVerificationEmailResponse {
 export interface LogoutResponse {
   success: true;
 }
-

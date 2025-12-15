@@ -9,6 +9,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser, useLogin, useLogout } from '@/hooks/api';
 import { tokenManager } from '@/lib/api/client';
+import { loadUserFromStorage, saveUserToStorage, clearUserFromStorage } from '@/lib/api/user-storage';
 import type { User } from '@/types/entities/user';
 import type { LoginPayload } from '@/types/api/auth';
 
@@ -25,7 +26,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize with cached user data for instant display
+  const [user, setUser] = useState<User | null>(() => loadUserFromStorage());
   const [isInitialized, setIsInitialized] = useState(false);
 
   // React Query hooks
@@ -41,42 +43,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMutation = useLogin();
   const logoutMutation = useLogout();
 
-  // Update user state when query data changes
+  // Update user state and localStorage when query data changes
   useEffect(() => {
     if (currentUser) {
       setUser(currentUser);
+      // Save fresh user data to localStorage
+      saveUserToStorage(currentUser);
     } else if (userError && !isLoadingUser) {
       // If there's an error and we're not loading, user is not authenticated
+      // Clear tokens and cached user data
+      tokenManager.clearTokens();
       setUser(null);
+      clearUserFromStorage();
     }
   }, [currentUser, userError, isLoadingUser]);
 
-  // Initialize: Check if user has tokens and fetch user data
+  // Initialize: Check if user has tokens
+  // React Query will automatically fetch user data if tokens exist (via useCurrentUser)
   useEffect(() => {
-    const initializeAuth = async () => {
-      // Check if tokens exist
-      if (hasTokens) {
-        try {
-          // Try to fetch user data
-          await refetchUser();
-        } catch (error) {
-          // If fetch fails, clear tokens
-          tokenManager.clearTokens();
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
-      setIsInitialized(true);
-    };
-
-    initializeAuth();
-  }, [hasTokens, refetchUser]);
+    if (!hasTokens) {
+      // No tokens, clear user data
+      setUser(null);
+      clearUserFromStorage();
+    }
+    // Mark as initialized - React Query will handle fetching user data
+    setIsInitialized(true);
+  }, [hasTokens]);
 
   // Listen for auth signout events (from token refresh failures, etc.)
   useEffect(() => {
     const handleSignOut = () => {
       setUser(null);
+      clearUserFromStorage();
       queryClient.clear();
     };
 
@@ -95,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = await refetchUser();
         if (userData.data) {
           setUser(userData.data);
+          // Save to localStorage (already done in useCurrentUser, but ensure it's saved)
+          saveUserToStorage(userData.data);
         }
       } catch (error) {
         // Error is handled by the mutation
@@ -113,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      clearUserFromStorage();
       queryClient.clear();
     }
   }, [logoutMutation, queryClient]);
@@ -123,10 +124,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await refetchUser();
       if (result.data) {
         setUser(result.data);
+        // Save fresh data to localStorage
+        saveUserToStorage(result.data);
       }
     } catch (error) {
       // If refresh fails, user might be logged out
       setUser(null);
+      clearUserFromStorage();
       throw error;
     }
   }, [refetchUser]);

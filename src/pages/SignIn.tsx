@@ -1,21 +1,21 @@
-import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import logo from "@/assets/dualguard-logo.png";
+import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Lock, Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import Navbar from "@/components/Navbar";
-import logo from "@/assets/dualguard-logo.png";
+import { Lock, Mail, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isSignedIn, isLoading: isAuthLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,9 +23,33 @@ const SignIn = () => {
   // Get the page the user was trying to access before being redirected
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!isAuthLoading && isSignedIn) {
+      navigate(from, { replace: true });
+    }
+  }, [isSignedIn, isAuthLoading, navigate, from]);
+
+  // Show loading while checking auth
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if already authenticated (will redirect)
+  if (isSignedIn) {
+    return null;
+  }
+
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       toast({
         title: "Missing fields",

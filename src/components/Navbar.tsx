@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Menu, X, User, Settings, LogOut } from "lucide-react";
+import logo from "@/assets/dualguard-logo.png";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,23 +8,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import logo from "@/assets/dualguard-logo.png";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
+import { LogOut, Menu, Settings, User, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
-  const { user, isSignedIn, signOut, toggleAuth } = useAuth();
+  const { user, isSignedIn, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      
+
       if (currentScrollY < 100) {
         setIsVisible(true);
       } else if (currentScrollY > lastScrollY) {
@@ -34,7 +32,7 @@ const Navbar = () => {
       } else {
         setIsVisible(true);
       }
-      
+
       setLastScrollY(currentScrollY);
     };
 
@@ -48,8 +46,8 @@ const Navbar = () => {
     { name: "For Protocols", href: "/for-protocols" },
   ];
 
-  const handleLogout = () => {
-    signOut();
+  const handleLogout = async () => {
+    await logout();
     navigate("/");
   };
 
@@ -91,35 +89,22 @@ const Navbar = () => {
 
           {/* Desktop CTA / User Menu */}
           <div className="hidden items-center gap-3 md:flex">
-            {/* Dev Toggle */}
-            <div className="flex items-center gap-2 mr-2 px-3 py-1 rounded-full border border-border/50 bg-muted/30">
-              <Label htmlFor="auth-toggle" className="text-xs text-muted-foreground cursor-pointer">
-                Demo
-              </Label>
-              <Switch
-                id="auth-toggle"
-                checked={isSignedIn}
-                onCheckedChange={toggleAuth}
-                className="scale-75"
-              />
-            </div>
-
             {isSignedIn ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <DropdownMenu modal={false}  >
+                <DropdownMenuTrigger asChild className="cursor-pointer">
                   <button className="flex items-center gap-2 rounded-full p-1 transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/50">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user?.avatar} />
+                      <AvatarImage src={user?.avatarUrl || undefined} />
                       <AvatarFallback className="bg-gradient-primary text-white text-sm">
-                        {user?.name?.charAt(0) || "U"}
+                        {user?.username?.charAt(0).toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5">
-                    <p className="font-medium">{user?.name}</p>
-                    <p className="text-sm text-muted-foreground">{user?.email}</p>
+                    <p className="font-medium">{user?.username}</p>
+                    <p className="text-sm text-muted-foreground">{user?.email || ""}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
@@ -192,19 +177,6 @@ const Navbar = () => {
                   </a>
                 )
               ))}
-
-              {/* Mobile Auth Toggle */}
-              <div className="flex items-center gap-2 py-2">
-                <Label htmlFor="auth-toggle-mobile" className="text-xs text-muted-foreground">
-                  Demo Mode
-                </Label>
-                <Switch
-                  id="auth-toggle-mobile"
-                  checked={isSignedIn}
-                  onCheckedChange={toggleAuth}
-                  className="scale-75"
-                />
-              </div>
 
               <div className="flex flex-col gap-2 pt-4">
                 {isSignedIn ? (
