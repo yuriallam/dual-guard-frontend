@@ -1,7 +1,6 @@
 // Export all API hooks
-export * from './query-keys';
-export * from './auth';
-export * from './users';
-export * from './contests';
-export * from './issues';
-
+export { queryKeys } from "@/constants/queryKeys";
+export * from "./auth";
+export * from "./contests";
+export * from "./issues";
+export * from "./users";

@@ -1,24 +1,21 @@
+import { issuesApi } from "@/api";
+import { queryKeys } from "@/constants/queryKeys";
+import type { PaginatedResponse, QueryParams } from "@/types/api/common";
+import type {
+  CreateIssueCommentPayload,
+  CreateIssueEscalationCommentPayload,
+  CreateIssuePayload,
+  Issue,
+  IssueWithRelations,
+  UpdateIssueEscalationCommentPayload,
+  UpdateIssuePayload,
+} from "@/types/entities/issue";
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
-  useInfiniteQuery,
-} from '@tanstack/react-query';
-import { issuesApi } from '@/lib/api';
-import { queryKeys } from './query-keys';
-import type {
-  CreateIssuePayload,
-  UpdateIssuePayload,
-  CreateIssueCommentPayload,
-  CreateIssueEscalationCommentPayload,
-  UpdateIssueEscalationCommentPayload,
-} from '@/types/entities/issue';
-import type { QueryParams, PaginatedResponse } from '@/types/api/common';
-import type { Issue, IssueWithRelations } from '@/types/entities/issue';
-import type {
-  IssueComment,
-  IssueCommentWithRelations,
-} from '@/types/entities/issue';
+} from "@tanstack/react-query";
 
 // Get all issues with pagination
 export const useIssues = (params?: QueryParams) => {
@@ -31,13 +28,15 @@ export const useIssues = (params?: QueryParams) => {
 
 // Get issues with infinite scroll
 export const useInfiniteIssues = (
-  params?: Omit<QueryParams, 'page' | 'offset'>,
+  params?: Omit<QueryParams, "page" | "offset">
 ) => {
   return useInfiniteQuery({
     queryKey: queryKeys.issues.list(params),
     queryFn: ({ pageParam = 1 }) =>
       issuesApi.getAll({ ...params, page: pageParam }),
-    getNextPageParam: (lastPage: PaginatedResponse<Issue | IssueWithRelations>) => {
+    getNextPageParam: (
+      lastPage: PaginatedResponse<Issue | IssueWithRelations>
+    ) => {
       const { page, totalPages } = lastPage.pagination;
       return page < totalPages ? page + 1 : undefined;
     },
@@ -50,7 +49,7 @@ export const useInfiniteIssues = (
 export const useContestIssues = (
   contestId: number,
   params?: QueryParams,
-  enabled = true,
+  enabled = true
 ) => {
   return useQuery({
     queryKey: queryKeys.issues.byContest(contestId, params),
@@ -63,13 +62,15 @@ export const useContestIssues = (
 // Get issues by contest with infinite scroll
 export const useInfiniteContestIssues = (
   contestId: number,
-  params?: Omit<QueryParams, 'page' | 'offset'>,
+  params?: Omit<QueryParams, "page" | "offset">
 ) => {
   return useInfiniteQuery({
     queryKey: queryKeys.issues.byContest(contestId, params),
     queryFn: ({ pageParam = 1 }) =>
       issuesApi.getByContest(contestId, { ...params, page: pageParam }),
-    getNextPageParam: (lastPage: PaginatedResponse<Issue | IssueWithRelations>) => {
+    getNextPageParam: (
+      lastPage: PaginatedResponse<Issue | IssueWithRelations>
+    ) => {
       const { page, totalPages } = lastPage.pagination;
       return page < totalPages ? page + 1 : undefined;
     },
@@ -115,8 +116,13 @@ export const useUpdateIssue = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: UpdateIssuePayload }) =>
-      issuesApi.update(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: UpdateIssuePayload;
+    }) => issuesApi.update(id, payload),
     onSuccess: (data, variables) => {
       // Update the specific issue query
       queryClient.setQueryData(queryKeys.issues.detail(variables.id), data);
@@ -139,14 +145,14 @@ export const useDeleteIssue = () => {
     onSuccess: async (_, id) => {
       // Get the issue to know which contest it belonged to
       const issue = queryClient.getQueryData<IssueWithRelations>(
-        queryKeys.issues.detail(id),
+        queryKeys.issues.detail(id)
       );
-      
+
       // Remove the specific issue query
       queryClient.removeQueries({ queryKey: queryKeys.issues.detail(id) });
       // Invalidate issues list
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.lists() });
-      
+
       // If we know the contest, invalidate its issues
       if (issue?.contestId) {
         queryClient.invalidateQueries({
@@ -164,7 +170,7 @@ export const useDeleteIssue = () => {
 export const useIssueComments = (
   issueId: number,
   params?: QueryParams,
-  enabled = true,
+  enabled = true
 ) => {
   return useQuery({
     queryKey: [...queryKeys.issues.comments(issueId), params],
@@ -258,4 +264,3 @@ export const useUpdateIssueEscalation = () => {
     },
   });
 };
-

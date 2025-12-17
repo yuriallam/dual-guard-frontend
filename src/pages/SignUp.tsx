@@ -1,3 +1,4 @@
+import { ApiClientError } from "@/api/client";
 import logo from "@/assets/dualguard-logo.png";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { Separator } from "@/components/ui/separator";
 import { useSignUp } from "@/hooks/api/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ApiClientError } from "@/lib/api/client";
 import { Lock, Mail, User, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";

@@ -1,21 +1,18 @@
+import { contestsApi } from "@/api";
+import { queryKeys } from "@/constants/queryKeys";
+import type { PaginatedResponse, QueryParams } from "@/types/api/common";
+import type {
+  Contest,
+  ContestWithRelations,
+  CreateContestPayload,
+  UpdateContestPayload,
+} from "@/types/entities/contest";
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
-  useInfiniteQuery,
-} from '@tanstack/react-query';
-import { contestsApi } from '@/lib/api';
-import { queryKeys } from './query-keys';
-import type {
-  CreateContestPayload,
-  UpdateContestPayload,
-} from '@/types/entities/contest';
-import type { QueryParams, PaginatedResponse } from '@/types/api/common';
-import type { Contest, ContestWithRelations } from '@/types/entities/contest';
-import type {
-  ContestParticipation,
-  ContestParticipationWithRelations,
-} from '@/types/entities/contest-participation';
+} from "@tanstack/react-query";
 
 // Get all contests with pagination
 export const useContests = (params?: QueryParams) => {
@@ -28,13 +25,15 @@ export const useContests = (params?: QueryParams) => {
 
 // Get contests with infinite scroll
 export const useInfiniteContests = (
-  params?: Omit<QueryParams, 'page' | 'offset'>,
+  params?: Omit<QueryParams, "page" | "offset">
 ) => {
   return useInfiniteQuery({
     queryKey: queryKeys.contests.list(params),
     queryFn: ({ pageParam = 1 }) =>
       contestsApi.getAll({ ...params, page: pageParam }),
-    getNextPageParam: (lastPage: PaginatedResponse<Contest | ContestWithRelations>) => {
+    getNextPageParam: (
+      lastPage: PaginatedResponse<Contest | ContestWithRelations>
+    ) => {
       const { page, totalPages } = lastPage.pagination;
       return page < totalPages ? page + 1 : undefined;
     },
@@ -71,8 +70,13 @@ export const useUpdateContest = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: UpdateContestPayload }) =>
-      contestsApi.update(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: UpdateContestPayload;
+    }) => contestsApi.update(id, payload),
     onSuccess: (data, variables) => {
       // Update the specific contest query
       queryClient.setQueryData(queryKeys.contests.detail(variables.id), data);
@@ -138,7 +142,7 @@ export const useLeaveContest = () => {
 // Get contest participants
 export const useContestParticipants = (
   contestId: number,
-  params?: QueryParams,
+  params?: QueryParams
 ) => {
   return useQuery({
     queryKey: [...queryKeys.contests.participants(contestId), params],
@@ -147,4 +151,3 @@ export const useContestParticipants = (
     staleTime: 30 * 1000, // 30 seconds
   });
 };
-

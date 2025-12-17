@@ -1,14 +1,13 @@
+import { usersApi } from "@/api";
+import { queryKeys } from "@/constants/queryKeys";
+import type { PaginatedResponse, QueryParams } from "@/types/api/common";
+import type { UpdateUserPayload, User } from "@/types/entities/user";
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
-  useInfiniteQuery,
-} from '@tanstack/react-query';
-import { usersApi } from '@/lib/api';
-import { queryKeys } from './query-keys';
-import type { UpdateUserPayload } from '@/types/entities/user';
-import type { QueryParams, PaginatedResponse } from '@/types/api/common';
-import type { User } from '@/types/entities/user';
+} from "@tanstack/react-query";
 
 // Get all users with pagination
 export const useUsers = (params?: QueryParams) => {
@@ -20,7 +19,9 @@ export const useUsers = (params?: QueryParams) => {
 };
 
 // Get users with infinite scroll
-export const useInfiniteUsers = (params?: Omit<QueryParams, 'page' | 'offset'>) => {
+export const useInfiniteUsers = (
+  params?: Omit<QueryParams, "page" | "offset">
+) => {
   return useInfiniteQuery({
     queryKey: queryKeys.users.list(params),
     queryFn: ({ pageParam = 1 }) =>
@@ -69,4 +70,3 @@ export const useUpdateProfile = () => {
     },
   });
 };
-

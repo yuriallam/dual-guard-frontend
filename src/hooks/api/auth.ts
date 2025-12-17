@@ -1,15 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { authApi } from '@/lib/api';
-import { tokenManager } from '@/lib/api/client';
-import { loadUserFromStorage, saveUserToStorage } from '@/lib/api/user-storage';
-import { queryKeys } from './query-keys';
+import { authApi } from "@/api";
+import { tokenManager } from "@/api/client";
+import { loadUserFromStorage, saveUserToStorage } from "@/api/user-storage";
+import { queryKeys } from "@/constants/queryKeys";
 import type {
   LoginPayload,
+  ResendVerificationEmailPayload,
   SignUpPayload,
   VerifyEmailPayload,
-  ResendVerificationEmailPayload,
-} from '@/types/api/auth';
-import type { User } from '@/types/entities/user';
+} from "@/types/api/auth";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 // Get current authenticated user
 // Uses cached data from localStorage for instant display, but always fetches fresh data
@@ -108,4 +107,3 @@ export const useResendVerificationEmail = () => {
       authApi.resendVerificationEmail(payload),
   });
 };
-

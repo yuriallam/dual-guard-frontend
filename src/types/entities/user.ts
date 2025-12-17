@@ -1,26 +1,33 @@
-import { UserRole, UserStatus } from './enums';
+import { UserRole, UserStatus } from "./enums";
 
-// User entity (excluding passwordHash and other sensitive fields)
+// User entity returned from the API
+// Note: some legacy fields are kept optional for compatibility
 export interface User {
   id: number;
-  walletAddress: string | null;
   email: string | null;
   username: string;
-  role: UserRole;
-  status: UserStatus;
-  score: string; // decimal as string
-  totalRewards: string; // decimal as string
-  highIssueCount: number;
-  mediumIssueCount: number;
-  lowIssueCount: number;
-  githubUsername: string | null;
-  xUsername: string | null;
-  telegramUsername: string | null;
-  discordUsername: string | null;
   bio: string | null;
+  walletAddress: string | null;
+  wallet: string | null;
+  isBanned: boolean;
+  isEmailVerified: boolean;
+  isIdentityVerified: boolean;
+  role: UserRole | string;
   avatarUrl: string | null;
-  createdAt: string; // ISO timestamp
-  updatedAt: string; // ISO timestamp
+
+  // Optional legacy fields (not always present from backend)
+  status?: UserStatus;
+  score?: string;
+  totalRewards?: string;
+  highIssueCount?: number;
+  mediumIssueCount?: number;
+  lowIssueCount?: number;
+  githubUsername?: string | null;
+  xUsername?: string | null;
+  telegramUsername?: string | null;
+  discordUsername?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // User creation/update payloads
@@ -40,5 +47,5 @@ export interface UpdateUserPayload {
   discordUsername?: string;
   bio?: string;
   avatarUrl?: string;
+  walletAddress?: string | null;
 }
-

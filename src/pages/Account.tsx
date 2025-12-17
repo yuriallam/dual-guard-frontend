@@ -1,16 +1,22 @@
-import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import Navbar from "@/components/Navbar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
+import { useUpdateProfile } from "@/hooks/api/users";
 import { useAuth } from "@/hooks/use-auth";
-import { Camera, User, Upload, CheckCircle2, X, Video } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Camera, CheckCircle2, Upload, User, Video, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const Account = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const updateProfile = useUpdateProfile();
+
   const [idPhoto, setIdPhoto] = useState<string | null>(null);
   const [selfiePhoto, setSelfiePhoto] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -18,10 +24,88 @@ const Account = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  const [usernameInput, setUsernameInput] = useState(user?.username ?? "");
+  const [bioInput, setBioInput] = useState(user?.bio ?? "");
+  const [walletInput, setWalletInput] = useState(user?.walletAddress ?? "");
+  const [walletError, setWalletError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setUsernameInput(user?.username ?? "");
+    setBioInput(user?.bio ?? "");
+    setWalletInput(user?.walletAddress ?? "");
+  }, [user?.username, user?.bio, user?.walletAddress]);
+
+  const initial = user?.username?.charAt(0)?.toUpperCase();
+  const formattedWallet = useMemo(() => {
+    if (!walletInput) return null;
+    return walletInput.length > 10
+      ? `${walletInput.slice(0, 6)}...${walletInput.slice(-4)}`
+      : walletInput;
+  }, [walletInput]);
+  const emailVerified = user?.isEmailVerified ?? false;
+  const identityVerified = user?.isIdentityVerified ?? false;
+  const isSaving = updateProfile.isPending;
+
+  const isUserInfoDirty =
+    usernameInput !== (user?.username ?? "") || bioInput !== (user?.bio ?? "");
+  const isWalletDirty = walletInput !== (user?.walletAddress ?? "");
+
+  const validateWallet = useCallback((value: string) => {
+    if (!value) return null; // empty is allowed; treat as remove
+    const trimmed = value.trim();
+    const isValid = /^0x[a-fA-F0-9]{40}$/.test(trimmed);
+    return isValid ? null : "Enter a valid Polygon address (0x + 40 hex chars).";
+  }, []);
+
+  useEffect(() => {
+    setWalletError(validateWallet(walletInput));
+  }, [walletInput, validateWallet]);
+
+  const handleSaveProfile = async () => {
+    if (!isUserInfoDirty || isSaving) return;
+    try {
+      await updateProfile.mutateAsync({
+        username: usernameInput || undefined,
+        bio: bioInput || null,
+      });
+      toast({
+        title: "Profile updated",
+        description: "Your information has been saved.",
+      });
+    } catch (error) {
+      toast({
+        title: "Update failed",
+        description:
+          error instanceof Error ? error.message : "Could not save your changes.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveWallet = async () => {
+    if (!isWalletDirty || isSaving || walletError) return;
+    try {
+      await updateProfile.mutateAsync({
+        walletAddress: walletInput.trim() || null,
+      });
+      toast({
+        title: "Wallet updated",
+        description: "Your wallet address has been saved.",
+      });
+    } catch (error) {
+      toast({
+        title: "Update failed",
+        description:
+          error instanceof Error ? error.message : "Could not save your wallet.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const openCamera = useCallback(async (mode: "id" | "selfie") => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: mode === "selfie" ? "user" : "environment" } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode === "selfie" ? "user" : "environment" }
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -81,9 +165,9 @@ const Account = () => {
             <CardContent className="flex items-center gap-6">
               <div className="relative">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={user?.avatar} />
+                  <AvatarImage src={user?.avatarUrl ?? undefined} />
                   <AvatarFallback className="bg-gradient-primary text-white text-2xl">
-                    {user?.name?.charAt(0) || <User className="h-10 w-10" />}
+                    {initial || <User className="h-10 w-10" />}
                   </AvatarFallback>
                 </Avatar>
                 <button className="absolute bottom-0 right-0 rounded-full bg-primary p-2 text-white hover:bg-primary/90 transition-colors">
@@ -126,17 +210,17 @@ const Account = () => {
                       </button>
                     </div>
                     <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                      <video 
-                        ref={videoRef} 
-                        autoPlay 
-                        playsInline 
-                        muted 
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <p className="text-sm text-muted-foreground text-center">
-                      {cameraMode === "id" 
-                        ? "Position your ID document clearly within the frame" 
+                      {cameraMode === "id"
+                        ? "Position your ID document clearly within the frame"
                         : "Look directly at the camera for a clear photo"}
                     </p>
                     <div className="flex gap-3">
@@ -156,15 +240,14 @@ const Account = () => {
                 {/* ID Document */}
                 <div className="space-y-3">
                   <Label>ID Document</Label>
-                  <div 
-                    className={`relative aspect-[3/2] rounded-lg border-2 border-dashed transition-colors ${
-                      idPhoto ? "border-green-500/50 bg-green-500/5" : "border-border/50 bg-muted/30"
-                    } flex items-center justify-center overflow-hidden`}
+                  <div
+                    className={`relative aspect-[3/2] rounded-lg border-2 border-dashed transition-colors ${idPhoto ? "border-green-500/50 bg-green-500/5" : "border-border/50 bg-muted/30"
+                      } flex items-center justify-center overflow-hidden`}
                   >
                     {idPhoto ? (
                       <>
                         <img src={idPhoto} alt="ID Document" className="w-full h-full object-cover" />
-                        <button 
+                        <button
                           onClick={() => setIdPhoto(null)}
                           className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1 hover:bg-destructive/90"
                         >
@@ -178,9 +261,9 @@ const Account = () => {
                       </div>
                     )}
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full"
                     onClick={() => openCamera("id")}
                     disabled={!!idPhoto}
@@ -193,15 +276,14 @@ const Account = () => {
                 {/* Selfie */}
                 <div className="space-y-3">
                   <Label>Selfie Photo</Label>
-                  <div 
-                    className={`relative aspect-[3/2] rounded-lg border-2 border-dashed transition-colors ${
-                      selfiePhoto ? "border-green-500/50 bg-green-500/5" : "border-border/50 bg-muted/30"
-                    } flex items-center justify-center overflow-hidden`}
+                  <div
+                    className={`relative aspect-[3/2] rounded-lg border-2 border-dashed transition-colors ${selfiePhoto ? "border-green-500/50 bg-green-500/5" : "border-border/50 bg-muted/30"
+                      } flex items-center justify-center overflow-hidden`}
                   >
                     {selfiePhoto ? (
                       <>
                         <img src={selfiePhoto} alt="Selfie" className="w-full h-full object-cover" />
-                        <button 
+                        <button
                           onClick={() => setSelfiePhoto(null)}
                           className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1 hover:bg-destructive/90"
                         >
@@ -215,9 +297,9 @@ const Account = () => {
                       </div>
                     )}
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full"
                     onClick={() => openCamera("selfie")}
                     disabled={!!selfiePhoto}
@@ -243,29 +325,64 @@ const Account = () => {
               <CardDescription>Update your personal details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue={user?.name?.split(" ")[0]} placeholder="John" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-sm">
+                  <span className="font-medium">Email status</span>
+                  <span
+                    className={`ml-auto rounded-full px-2 py-0.5 text-xs ${emailVerified ? "bg-emerald-500/20 text-emerald-500" : "bg-amber-500/20 text-amber-600"}`}
+                  >
+                    {emailVerified ? "Verified" : "Unverified"}
+                  </span>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue={user?.name?.split(" ")[1]} placeholder="Doe" />
+                <div className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-sm">
+                  <span className="font-medium">Identity</span>
+                  <span
+                    className={`ml-auto rounded-full px-2 py-0.5 text-xs ${identityVerified ? "bg-emerald-500/20 text-emerald-500" : "bg-sky-500/20 text-sky-600"}`}
+                  >
+                    {identityVerified ? "Verified" : "Pending"}
+                  </span>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" defaultValue={user?.email} placeholder="john@example.com" />
+                <Input
+                  id="email"
+                  type="email"
+                  value={user?.email ?? ""}
+                  placeholder="email not set"
+                  readOnly
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
-                <Input id="username" defaultValue="johndoe" placeholder="johndoe" />
+                <Input
+                  id="username"
+                  value={usernameInput}
+                  onChange={(e) => setUsernameInput(e.target.value)}
+                  placeholder="username"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bio">Bio</Label>
-                <Input id="bio" placeholder="Smart contract security researcher..." />
+                <Textarea
+                  id="bio"
+                  value={bioInput}
+                  onChange={(e) => setBioInput(e.target.value.slice(0, 280))}
+                  placeholder="Tell other researchers about yourself"
+                  rows={4}
+                />
+                <p className="text-xs text-muted-foreground text-right">
+                  {bioInput.length}/280
+                </p>
               </div>
-              <Button variant="gradient" className="mt-4">Save Changes</Button>
+              <Button
+                variant="gradient"
+                className="mt-4"
+                onClick={handleSaveProfile}
+                disabled={isSaving || !isUserInfoDirty}
+              >
+                {isSaving ? "Saving..." : "Save Changes"}
+              </Button>
             </CardContent>
           </Card>
 
@@ -276,19 +393,63 @@ const Account = () => {
               <CardDescription>Your connected Web3 wallet</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/30">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gradient-primary flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">MM</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/30">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-primary flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">
+                        {formattedWallet ? formattedWallet.slice(2, 4).toUpperCase() : "--"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        {formattedWallet ? "Connected Wallet" : "No wallet connected"}
+                      </p>
+                      <p className="text-sm text-muted-foreground font-mono">
+                        {formattedWallet ?? "Add a wallet to your account"}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">MetaMask</p>
-                    <p className="text-sm text-muted-foreground font-mono">0x1234...5678</p>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!walletInput}
+                    onClick={() => setWalletInput("")}
+                  >
+                    Clear
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm">Disconnect</Button>
+                <div className="space-y-2">
+                  <Label htmlFor="wallet">Wallet Address</Label>
+                  <Input
+                    id="wallet"
+                    value={walletInput}
+                    onChange={(e) => setWalletInput(e.target.value)}
+                    placeholder="0x..."
+                  />
+                  {walletError && (
+                    <p className="text-xs text-destructive">{walletError}</p>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setWalletInput("")}
+                    disabled={!walletInput || isSaving}
+                  >
+                    Remove Wallet
+                  </Button>
+                  <Button
+                    variant="gradient"
+                    className="w-full"
+                    onClick={handleSaveWallet}
+                    disabled={isSaving || !isWalletDirty || !!walletError}
+                  >
+                    {isSaving ? "Saving..." : "Save Wallet"}
+                  </Button>
+                </div>
               </div>
-              <Button variant="outline" className="w-full">Connect Another Wallet</Button>
             </CardContent>
           </Card>
 
