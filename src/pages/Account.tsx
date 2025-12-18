@@ -108,9 +108,6 @@ const Account = () => {
         video: { facingMode: mode === "selfie" ? "user" : "environment" }
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
       setIsCameraOpen(true);
       setCameraMode(mode);
     } catch (error) {
@@ -118,10 +115,20 @@ const Account = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (isCameraOpen && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(err => console.error("Error playing video:", err));
+    }
+  }, [isCameraOpen]);
+
   const closeCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     setIsCameraOpen(false);
     setCameraMode(null);
