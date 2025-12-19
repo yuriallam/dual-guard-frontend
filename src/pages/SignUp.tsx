@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useSignUp } from "@/hooks/api/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Mail, User, Wallet } from "lucide-react";
+import { Check, Eye, EyeOff, Lock, Mail, User, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -20,6 +20,8 @@ const SignUp = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<{
     username?: string;
     email?: string;
@@ -82,13 +84,49 @@ const SignUp = () => {
     return undefined;
   };
 
-  // Validate password: 8-128 characters
+  // Password requirement checks
+  const passwordRequirements = {
+    minLength: password.length >= 8,
+    hasCapital: /[A-Z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+    hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+  };
+
+  // Check if all password requirements are met
+  const allPasswordRequirementsMet =
+    passwordRequirements.minLength &&
+    passwordRequirements.hasCapital &&
+    passwordRequirements.hasNumber &&
+    passwordRequirements.hasSpecial;
+
+  // Check if passwords match
+  const passwordsMatch = password === confirmPassword && password.length > 0;
+
+  // Check if form is valid for submission
+  const isFormValid =
+    allPasswordRequirementsMet &&
+    passwordsMatch &&
+    acceptTerms;
+
+  // Validate password: 8+ chars, capital, number, special char
   const validatePassword = (value: string): string | undefined => {
     if (!value) {
       return "Password is required";
     }
-    if (value.length < 8 || value.length > 128) {
-      return "Password must be between 8 and 128 characters";
+    if (value.length < 8) {
+      return "Password must be at least 8 characters";
+    }
+    if (value.length > 128) {
+      return "Password must be at most 128 characters";
+    }
+    if (!/[A-Z]/.test(value)) {
+      return "Password must contain at least one capital letter";
+    }
+    if (!/[0-9]/.test(value)) {
+      return "Password must contain at least one number";
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)) {
+      return "Password must contain at least one special character";
     }
     return undefined;
   };
@@ -303,7 +341,7 @@ const SignUp = () => {
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => {
@@ -316,16 +354,58 @@ const SignUp = () => {
                         setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
                       }
                     }}
-                    className={`pl-10 bg-background/50 border-border/50 focus:border-primary ${errors.password ? "border-destructive" : ""
+                    className={`pl-10 pr-10 bg-background/50 border-border/50 focus:border-primary ${errors.password ? "border-destructive" : ""
                       }`}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
                 {errors.password && (
                   <p className="text-sm text-destructive">{errors.password}</p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  8-128 characters
-                </p>
+                <div className="space-y-1.5 mt-2">
+                  <div className={`flex items-center gap-2 text-xs transition-colors ${passwordRequirements.minLength ? "text-green-500" : "text-muted-foreground"}`}>
+                    {passwordRequirements.minLength ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/50" />
+                    )}
+                    <span>At least 8 characters</span>
+                  </div>
+                  <div className={`flex items-center gap-2 text-xs transition-colors ${passwordRequirements.hasCapital ? "text-green-500" : "text-muted-foreground"}`}>
+                    {passwordRequirements.hasCapital ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/50" />
+                    )}
+                    <span>One capital letter</span>
+                  </div>
+                  <div className={`flex items-center gap-2 text-xs transition-colors ${passwordRequirements.hasNumber ? "text-green-500" : "text-muted-foreground"}`}>
+                    {passwordRequirements.hasNumber ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/50" />
+                    )}
+                    <span>One number</span>
+                  </div>
+                  <div className={`flex items-center gap-2 text-xs transition-colors ${passwordRequirements.hasSpecial ? "text-green-500" : "text-muted-foreground"}`}>
+                    {passwordRequirements.hasSpecial ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/50" />
+                    )}
+                    <span>One special character</span>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -334,7 +414,7 @@ const SignUp = () => {
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="confirmPassword"
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={confirmPassword}
                     onChange={(e) => {
@@ -343,12 +423,32 @@ const SignUp = () => {
                         setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
                       }
                     }}
-                    className={`pl-10 bg-background/50 border-border/50 focus:border-primary ${errors.confirmPassword ? "border-destructive" : ""
+                    className={`pl-10 pr-10 bg-background/50 border-border/50 focus:border-primary ${errors.confirmPassword ? "border-destructive" : ""
                       }`}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
                 {errors.confirmPassword && (
                   <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                )}
+                {confirmPassword && password && !passwordsMatch && !errors.confirmPassword && (
+                  <p className="text-sm text-destructive">Passwords do not match</p>
+                )}
+                {confirmPassword && password && passwordsMatch && (
+                  <p className="text-sm text-green-500 flex items-center gap-1.5">
+                    <Check className="h-3.5 w-3.5" />
+                    Passwords match
+                  </p>
                 )}
               </div>
 
@@ -375,7 +475,7 @@ const SignUp = () => {
                 type="submit"
                 variant="gradient"
                 className="w-full h-12"
-                disabled={isSigningUp}
+                disabled={isSigningUp || !isFormValid}
               >
                 {isSigningUp ? "Creating Account..." : "Create Account"}
               </Button>
