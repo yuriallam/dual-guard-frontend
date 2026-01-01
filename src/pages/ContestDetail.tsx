@@ -5,8 +5,9 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { contests } from "@/data/contests";
-import { statusLabels, statusColors } from "@/types/contest";
+import { useContest } from "@/hooks/api/contests";
+import { transformContestForDetail } from "@/lib/contests";
+import { statusColors, ContestStatusEnum, ContestStatusLabels } from "@/types/contest";
 import { Finding, Severity } from "@/types/finding";
 import { ReviewStatus } from "@/types/judge-review";
 import { useFindings, useMockUserId } from "@/hooks/use-findings";
@@ -17,7 +18,8 @@ import JudgeReviewPanel from "@/components/JudgeReviewPanel";
 
 const ContestDetail = () => {
   const { id } = useParams();
-  const contest = contests.find(c => c.id === id);
+  const contestId = id ? parseInt(id, 10) : null;
+  const { data: apiContest, isLoading, error } = useContest(contestId || 0, !!contestId);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [editingFinding, setEditingFinding] = useState<Finding | null>(null);
   
@@ -28,7 +30,20 @@ const ContestDetail = () => {
   // Mock: check if current user is a judge (for demo, we'll use a toggle or assume judge role in judging phase)
   const [isJudgeView, setIsJudgeView] = useState(false);
 
-  if (!contest) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto flex min-h-[60vh] flex-col items-center justify-center px-4 pt-32">
+          <div className="h-8 w-64 animate-pulse rounded bg-muted" />
+          <div className="mt-4 h-4 w-96 animate-pulse rounded bg-muted" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !apiContest || !contestId) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -47,9 +62,11 @@ const ContestDetail = () => {
     );
   }
 
-  const isActive = contest.status === 'active';
-  const isJudging = contest.status === 'judging' || contest.status === 'escalations';
-  const showFindingsSummary = contest.status === 'judging' || contest.status === 'escalations' || contest.status === 'finished';
+  const contest = transformContestForDetail(apiContest);
+
+  const isActive = contest.status === ContestStatusEnum.ACTIVE;
+  const isJudging = contest.status === ContestStatusEnum.JUDGING || contest.status === ContestStatusEnum.ESCALATIONS;
+  const showFindingsSummary = contest.status === ContestStatusEnum.JUDGING || contest.status === ContestStatusEnum.ESCALATIONS || contest.status === ContestStatusEnum.COMPLETED;
 
   // Get appropriate findings based on contest status
   const userFindings = getUserFindings();
@@ -117,10 +134,10 @@ const ContestDetail = () => {
                     {contest.name}
                   </h1>
                   <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColors[contest.status]}`}>
-                    {contest.status === 'active' && (
+                    {contest.status === ContestStatusEnum.ACTIVE && (
                       <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
                     )}
-                    {statusLabels[contest.status]}
+                    {ContestStatusLabels[contest.status]}
                   </span>
                 </div>
                 <p className="mt-2 text-lg text-muted-foreground">{contest.type}</p>
@@ -134,12 +151,12 @@ const ContestDetail = () => {
                   Submit Finding
                 </Button>
               )}
-              {contest.status === 'upcoming' && (
+              {contest.status === ContestStatusEnum.UPCOMING && (
                 <Button variant="gradient" size="lg">
                   Register Interest
                 </Button>
               )}
-              {contest.status === 'finished' && (
+              {contest.status === ContestStatusEnum.COMPLETED && (
                 <Button variant="outline" size="lg">
                   View Report
                   <ExternalLink className="ml-2 h-4 w-4" />

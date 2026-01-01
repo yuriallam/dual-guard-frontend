@@ -91,5 +91,34 @@ export const contestsApi = {
       endpoint,
     );
   },
+
+  // Get active and upcoming contests
+  getActiveAndUpcoming: async (): Promise<ContestWithRelations[]> => {
+    return api.get<ContestWithRelations[]>(API_ENDPOINTS.CONTESTS.ACTIVE_UPCOMING);
+  },
+
+  // Get paginated contests
+  getPaginated: async (
+    params?: QueryParams,
+  ): Promise<PaginatedResponse<Contest | ContestWithRelations>> => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.status) searchParams.append('status', params.status as string);
+    
+    // Add any additional filter params
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (!['page', 'limit', 'status'].includes(key) && value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    });
+
+    const queryString = searchParams.toString();
+    const endpoint = queryString
+      ? `${API_ENDPOINTS.CONTESTS.PAGINATED}?${queryString}`
+      : API_ENDPOINTS.CONTESTS.PAGINATED;
+
+    return api.get<PaginatedResponse<Contest | ContestWithRelations>>(endpoint);
+  },
 };
 

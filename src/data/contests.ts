@@ -42,7 +42,7 @@ export const contests: Contest[] = [
   },
   {
     id: "yield-aggregator",
-    name: "Yield Aggregator",
+    name: "Yield Aggregator Without Token",
     logo: "YA",
     prize: "$100,000",
     startDate: "Nov 15",

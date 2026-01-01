@@ -151,3 +151,21 @@ export const useContestParticipants = (
     staleTime: 30 * 1000, // 30 seconds
   });
 };
+
+// Get active and upcoming contests
+export const useActiveAndUpcomingContests = () => {
+  return useQuery({
+    queryKey: queryKeys.contests.activeUpcoming(),
+    queryFn: () => contestsApi.getActiveAndUpcoming(),
+    staleTime: 30 * 1000, // 30 seconds
+  });
+};
+
+// Get paginated contests
+export const usePaginatedContests = (params?: QueryParams) => {
+  return useQuery({
+    queryKey: [...queryKeys.contests.list(params), 'paginated'],
+    queryFn: () => contestsApi.getPaginated(params),
+    staleTime: 30 * 1000, // 30 seconds
+  });
+};

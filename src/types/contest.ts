@@ -1,4 +1,10 @@
-export type ContestStatus = 'active' | 'upcoming' | 'judging' | 'escalations' | 'finished';
+export enum ContestStatusEnum {
+  ACTIVE = 'ACTIVE',
+  UPCOMING = 'UPCOMING',
+  JUDGING = 'JUDGING',
+  ESCALATIONS = 'ESCALATIONS',
+  COMPLETED = 'COMPLETED',
+}
 
 export interface Contest {
   id: string;
@@ -7,7 +13,7 @@ export interface Contest {
   prize: string;
   startDate: string;
   endDate: string;
-  status: ContestStatus;
+  status: ContestStatusEnum;
   participants: number;
   type: string;
   description?: string;
@@ -17,18 +23,18 @@ export interface Contest {
   lowFindings?: number;
 }
 
-export const statusLabels: Record<ContestStatus, string> = {
-  active: 'Active',
-  upcoming: 'Upcoming',
-  judging: 'Judging',
-  escalations: 'Escalations Open',
-  finished: 'Finished',
+export const ContestStatusLabels: Record<ContestStatusEnum, string> = {
+  [ContestStatusEnum.ACTIVE]: 'Active',
+  [ContestStatusEnum.UPCOMING]: 'Upcoming',
+  [ContestStatusEnum.JUDGING]: 'Judging',
+  [ContestStatusEnum.ESCALATIONS]: 'Escalations Open',
+  [ContestStatusEnum.COMPLETED]: 'Finished',
 };
 
-export const statusColors: Record<ContestStatus, string> = {
-  active: 'bg-green-500/10 text-green-400 border-green-500/30',
-  upcoming: 'bg-cyan/10 text-cyan border-cyan/30',
-  judging: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-  escalations: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-  finished: 'bg-muted text-muted-foreground border-border',
+export const statusColors: Record<ContestStatusEnum, string> = {
+  [ContestStatusEnum.ACTIVE]: 'bg-green-500/10 text-green-400 border-green-500/30',
+  [ContestStatusEnum.UPCOMING]: 'bg-cyan/10 text-cyan border-cyan/30',
+  [ContestStatusEnum.JUDGING]: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+  [ContestStatusEnum.ESCALATIONS]: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  [ContestStatusEnum.COMPLETED]: 'bg-muted text-muted-foreground border-border',
 };

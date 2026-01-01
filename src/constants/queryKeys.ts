@@ -29,6 +29,7 @@ export const queryKeys = {
     detail: (id: number) => [...queryKeys.contests.details(), id] as const,
     participants: (id: number) =>
       [...queryKeys.contests.detail(id), 'participants'] as const,
+    activeUpcoming: () => [...queryKeys.contests.all, 'active-upcoming'] as const,
   },
 
   // Issues

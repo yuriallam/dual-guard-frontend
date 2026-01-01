@@ -3,26 +3,36 @@ import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ContestCard from "@/components/ContestCard";
-import { contests } from "@/data/contests";
-import { ContestStatus } from "@/types/contest";
+import { usePaginatedContests } from "@/hooks/api/contests";
+import { transformContestForCard } from "@/lib/contests";
+import { ContestStatusEnum } from "@/types/contest";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type FilterStatus = 'all' | ContestStatus;
+type FilterStatus = 'all' | 'ACTIVE' | 'UPCOMING' | 'JUDGING' | 'ESCALATIONS' | 'COMPLETED';
 
-const statusFilters: { value: FilterStatus; label: string }[] = [
+const statusFilters: { value: FilterStatus; label: string; apiValue?: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'judging', label: 'Judging' },
-  { value: 'escalations', label: 'Escalations Open' },
-  { value: 'finished', label: 'Finished' },
+  { value: 'ACTIVE', label: 'Active', apiValue: 'ACTIVE' },
+  { value: 'UPCOMING', label: 'Upcoming', apiValue: 'UPCOMING' },
+  { value: 'JUDGING', label: 'Judging', apiValue: 'JUDGING' },
+  { value: 'ESCALATIONS', label: 'Escalations Open', apiValue: 'ESCALATIONS' },
+  { value: 'COMPLETED', label: 'Finished', apiValue: 'COMPLETED' },
 ];
 
 const Contests = () => {
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
+  const [page, setPage] = useState(1);
+  const limit = 12;
 
-  const filteredContests = activeFilter === 'all' 
-    ? contests 
-    : contests.filter(contest => contest.status === activeFilter);
+  const { data, isLoading, error } = usePaginatedContests({
+    page,
+    limit,
+    status: activeFilter !== 'all' ? activeFilter : undefined,
+  });
+
+  const contests = data?.data || [];
+  const pagination = data?.pagination;
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,7 +63,10 @@ const Contests = () => {
             {statusFilters.map((filter) => (
               <button
                 key={filter.value}
-                onClick={() => setActiveFilter(filter.value)}
+                onClick={() => {
+                  setActiveFilter(filter.value);
+                  setPage(1); // Reset to first page when filter changes
+                }}
                 className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
                   activeFilter === filter.value
                     ? 'bg-gradient-primary text-primary-foreground'
@@ -61,11 +74,6 @@ const Contests = () => {
                 }`}
               >
                 {filter.label}
-                {filter.value !== 'all' && (
-                  <span className="ml-2 rounded-full bg-background/20 px-2 py-0.5 text-xs">
-                    {contests.filter(c => c.status === filter.value).length}
-                  </span>
-                )}
               </button>
             ))}
           </div>
@@ -75,19 +83,71 @@ const Contests = () => {
       {/* Contest Grid */}
       <section className="py-12">
         <div className="container mx-auto px-4">
-          {filteredContests.length > 0 ? (
+          {isLoading ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredContests.map((contest, index) => (
-                <Link 
-                  key={contest.id} 
-                  to={`/contests/${contest.id}`}
-                  className="animate-fade-in-up block"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <ContestCard {...contest} />
-                </Link>
+              {[...Array(limit)].map((_, index) => (
+                <div
+                  key={index}
+                  className="h-64 animate-pulse rounded-xl border border-border bg-card"
+                />
               ))}
             </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="rounded-full bg-muted p-6">
+                <svg className="h-12 w-12 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="mt-6 font-display text-xl font-semibold text-foreground">Failed to load contests</h3>
+              <p className="mt-2 text-muted-foreground">Please try again later.</p>
+            </div>
+          ) : contests.length > 0 ? (
+            <>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {contests.map((contest, index) => (
+                  <Link 
+                    key={contest.id} 
+                    to={`/contests/${contest.id}`}
+                    className="animate-fade-in-up block"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <ContestCard {...transformContestForCard(contest)} />
+                  </Link>
+                ))}
+              </div>
+              
+              {/* Pagination */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="mt-12 flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1 || isLoading}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Page {pagination.page} of {pagination.totalPages}
+                    </span>
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                    disabled={page === pagination.totalPages || isLoading}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <div className="rounded-full bg-muted p-6">
