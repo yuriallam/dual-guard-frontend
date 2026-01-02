@@ -24,11 +24,9 @@ import type { Severity as BackendSeverity } from "@/types/entities/enums";
 // Map backend Severity enum to frontend Severity type
 const mapSeverity = (severity: string): Severity => {
   const severityMap: Record<string, Severity> = {
-    'CRITICAL': 'critical',
     'HIGH': 'high',
     'MEDIUM': 'medium',
     'LOW': 'low',
-    'INFORMATIONAL': 'informational',
   };
   return severityMap[severity.toUpperCase()] || 'low';
 };
@@ -142,11 +140,9 @@ const ContestDetail = () => {
   // Map frontend Severity to backend Severity enum
   const mapSeverityToBackend = (severity: Severity): BackendSeverity => {
     const severityMap: Record<Severity, BackendSeverity> = {
-      'critical': 'CRITICAL',
       'high': 'HIGH',
       'medium': 'MEDIUM',
       'low': 'LOW',
-      'informational': 'INFORMATIONAL',
     };
     return severityMap[severity];
   };
