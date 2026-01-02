@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Clock, DollarSign, Users, FileCode, AlertTriangle, AlertCircle, Info, ExternalLink, Calendar, Plus, Scale } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useContest } from "@/hooks/api/contests";
+import { useContest, useContestParticipation, useJoinContest } from "@/hooks/api/contests";
+import { useCreateIssue } from "@/hooks/api/issues";
 import { transformContestForDetail } from "@/lib/contests";
 import { statusColors, ContestStatusEnum, ContestStatusLabels } from "@/types/contest";
 import { Finding, Severity } from "@/types/finding";
@@ -15,11 +16,49 @@ import { useJudgeReviews } from "@/hooks/use-judge-reviews";
 import SubmitFindingDialog from "@/components/SubmitFindingDialog";
 import FindingsList from "@/components/FindingsList";
 import JudgeReviewPanel from "@/components/JudgeReviewPanel";
+import { useAuth } from "@/hooks/use-auth";
+import type { UserIssue } from "@/types/api/contest-participation";
+import { useToast } from "@/hooks/use-toast";
+import type { Severity as BackendSeverity } from "@/types/entities/enums";
+
+// Map backend Severity enum to frontend Severity type
+const mapSeverity = (severity: string): Severity => {
+  const severityMap: Record<string, Severity> = {
+    'CRITICAL': 'critical',
+    'HIGH': 'high',
+    'MEDIUM': 'medium',
+    'LOW': 'low',
+    'INFORMATIONAL': 'informational',
+  };
+  return severityMap[severity.toUpperCase()] || 'low';
+};
+
+// Transform UserIssue to Finding format for compatibility with existing components
+const transformIssueToFinding = (issue: UserIssue, contestId: string): Finding => {
+  return {
+    id: `issue-${issue.createdAt}`, // Temporary ID based on timestamp
+    contestId,
+    severity: mapSeverity(issue.severity),
+    title: issue.title,
+    content: issue.description,
+    createdAt: issue.createdAt,
+    updatedAt: issue.updatedAt,
+    authorId: 'current-user', // Will be replaced with actual user ID
+  };
+};
 
 const ContestDetail = () => {
   const { id } = useParams();
   const contestId = id ? parseInt(id, 10) : null;
+  const { isSignedIn } = useAuth();
+  const { toast } = useToast();
   const { data: apiContest, isLoading, error } = useContest(contestId || 0, !!contestId);
+  const { data: participation, isLoading: isLoadingParticipation } = useContestParticipation(
+    contestId || 0,
+    !!contestId && isSignedIn
+  );
+  const joinContestMutation = useJoinContest();
+  const createIssueMutation = useCreateIssue();
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [editingFinding, setEditingFinding] = useState<Finding | null>(null);
   
@@ -29,6 +68,14 @@ const ContestDetail = () => {
   
   // Mock: check if current user is a judge (for demo, we'll use a toggle or assume judge role in judging phase)
   const [isJudgeView, setIsJudgeView] = useState(false);
+
+  // Transform API issues to Finding format
+  const userIssuesFromAPI = useMemo(() => {
+    if (!participation?.issuesSubmitted || !id) return [];
+    return participation.issuesSubmitted.map(issue => transformIssueToFinding(issue, id));
+  }, [participation?.issuesSubmitted, id]);
+
+  const isParticipating = participation?.participated ?? false;
 
   if (isLoading) {
     return (
@@ -69,15 +116,74 @@ const ContestDetail = () => {
   const showFindingsSummary = contest.status === ContestStatusEnum.JUDGING || contest.status === ContestStatusEnum.ESCALATIONS || contest.status === ContestStatusEnum.COMPLETED;
 
   // Get appropriate findings based on contest status
-  const userFindings = getUserFindings();
+  // Use API issues if available, otherwise fall back to mock data
+  const userFindings = isParticipating && userIssuesFromAPI.length > 0 
+    ? userIssuesFromAPI 
+    : getUserFindings();
   const displayFindings = isJudging ? findings : userFindings;
 
-  const handleSubmitFinding = (data: { severity: Severity; title: string; content: string }) => {
+  const handleJoinContest = async () => {
+    if (!contestId) return;
+    try {
+      await joinContestMutation.mutateAsync(contestId);
+      toast({
+        title: "Success",
+        description: "You have successfully joined the contest!",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to join the contest. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Map frontend Severity to backend Severity enum
+  const mapSeverityToBackend = (severity: Severity): BackendSeverity => {
+    const severityMap: Record<Severity, BackendSeverity> = {
+      'critical': 'CRITICAL',
+      'high': 'HIGH',
+      'medium': 'MEDIUM',
+      'low': 'LOW',
+      'informational': 'INFORMATIONAL',
+    };
+    return severityMap[severity];
+  };
+
+  const handleSubmitFinding = async (data: { severity: Severity; title: string; content: string }) => {
+    if (!contestId) {
+      toast({
+        title: "Error",
+        description: "Contest ID is missing.",
+        variant: "destructive",
+      });
+      throw new Error("Contest ID is missing");
+    }
+
     if (editingFinding) {
+      // TODO: Implement update issue API when available
+      // For now, use mock update (synchronous)
       updateFinding(editingFinding.id, data);
       setEditingFinding(null);
+      toast({
+        title: "Finding updated",
+        description: "Your finding has been updated successfully.",
+      });
+      // Return resolved promise for async compatibility
+      return Promise.resolve();
     } else {
-      createFinding(data);
+      await createIssueMutation.mutateAsync({
+        contestId,
+        title: data.title,
+        description: data.content,
+        severity: mapSeverityToBackend(data.severity),
+      });
+      
+      toast({
+        title: "Finding submitted",
+        description: "Your finding has been submitted for review.",
+      });
     }
   };
 
@@ -145,10 +251,20 @@ const ContestDetail = () => {
             </div>
             
             <div className="flex gap-3">
-              {isActive && (
+              {isActive && isParticipating && (
                 <Button variant="gradient" size="lg" onClick={() => setSubmitDialogOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Submit Finding
+                </Button>
+              )}
+              {isActive && !isParticipating && isSignedIn && (
+                <Button 
+                  variant="gradient" 
+                  size="lg" 
+                  onClick={handleJoinContest}
+                  disabled={joinContestMutation.isPending}
+                >
+                  Join Contest
                 </Button>
               )}
               {contest.status === ContestStatusEnum.UPCOMING && (
@@ -203,23 +319,47 @@ const ContestDetail = () => {
               )}
 
               {/* My Findings (Active contests) */}
-              {isActive && (
+              {isActive && isParticipating && (
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="font-display text-xl font-semibold text-foreground">My Findings</h2>
-                    {userFindings.length > 0 && (
-                      <Button variant="outline" size="sm" onClick={() => setSubmitDialogOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        New Finding
-                      </Button>
-                    )}
+                    <Button variant="outline" size="sm" onClick={() => setSubmitDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      New Finding
+                    </Button>
                   </div>
-                  <FindingsList
-                    findings={userFindings}
-                    isAnonymous={false}
-                    onEdit={handleEditFinding}
-                    onDelete={handleDeleteFinding}
-                  />
+                  {userFindings.length > 0 ? (
+                    <FindingsList
+                      findings={userFindings}
+                      isAnonymous={false}
+                      onEdit={handleEditFinding}
+                      onDelete={handleDeleteFinding}
+                    />
+                  ) : (
+                    <div className="rounded-xl border border-border bg-card p-8 text-center">
+                      <p className="text-muted-foreground">You haven't submitted any findings yet.</p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4" 
+                        onClick={() => setSubmitDialogOpen(true)}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Submit Your First Finding
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {isActive && !isParticipating && isSignedIn && (
+                <div className="rounded-xl border border-border bg-card p-8 text-center">
+                  <p className="text-muted-foreground mb-4">Join the contest to start submitting findings.</p>
+                  <Button 
+                    variant="gradient" 
+                    onClick={handleJoinContest}
+                    disabled={joinContestMutation.isPending}
+                  >
+                    Join Contest
+                  </Button>
                 </div>
               )}
 

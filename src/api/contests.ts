@@ -8,6 +8,7 @@ import type {
 } from '@/types/entities/contest';
 import type { ContestParticipation, ContestParticipationWithRelations } from '@/types/entities/contest-participation';
 import type { QueryParams, PaginatedResponse } from '@/types/api/common';
+import type { UserParticipationResponse } from '@/types/api/contest-participation';
 
 // Contests API client
 export const contestsApi = {
@@ -62,7 +63,7 @@ export const contestsApi = {
 
   // Join contest
   join: async (id: number): Promise<ContestParticipation> => {
-    return api.post<ContestParticipation>(API_ENDPOINTS.CONTESTS.JOIN(id));
+    return api.post<ContestParticipation>(API_ENDPOINTS.CONTESTS.JOIN, { contestId: id });
   },
 
   // Leave contest
@@ -119,6 +120,11 @@ export const contestsApi = {
       : API_ENDPOINTS.CONTESTS.PAGINATED;
 
     return api.get<PaginatedResponse<Contest | ContestWithRelations>>(endpoint);
+  },
+
+  // Get user participation in contest
+  getMyParticipation: async (contestId: number): Promise<UserParticipationResponse> => {
+    return api.get<UserParticipationResponse>(API_ENDPOINTS.CONTESTS.PARTICIPATION(contestId));
   },
 };
 

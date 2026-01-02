@@ -107,6 +107,10 @@ export const useCreateIssue = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.contests.detail(data.contestId),
       });
+      // Invalidate participation to update user's submitted issues
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.contests.detail(data.contestId), 'participation'],
+      });
     },
   });
 };

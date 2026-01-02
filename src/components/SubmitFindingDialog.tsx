@@ -25,17 +25,11 @@ interface SubmitFindingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contestName: string;
-  onSubmit: (data: { severity: Severity; title: string; content: string }) => void;
+  onSubmit: (data: { severity: Severity; title: string; content: string }) => Promise<void>;
   editingFinding?: Finding | null;
 }
 
 const severityConfig: Record<Severity, { label: string; icon: typeof AlertTriangle; color: string; description: string }> = {
-  critical: {
-    label: "Critical",
-    icon: ShieldAlert,
-    color: "text-red-500",
-    description: "Direct loss of funds or permanent freezing"
-  },
   high: {
     label: "High",
     icon: AlertTriangle,
@@ -54,12 +48,6 @@ const severityConfig: Record<Severity, { label: string; icon: typeof AlertTriang
     color: "text-blue-500",
     description: "Minor issues with minimal impact"
   },
-  informational: {
-    label: "Informational",
-    icon: Info,
-    color: "text-muted-foreground",
-    description: "Best practices, code quality, or gas optimizations"
-  }
 };
 
 const FINDING_TEMPLATE = `## Summary
@@ -119,24 +107,20 @@ const SubmitFindingDialog = ({ open, onOpenChange, contestName, onSubmit, editin
 
     setIsSubmitting(true);
     
-    // Simulate submission delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    onSubmit({ severity, title, content });
-    
-    toast({
-      title: isEditing ? "Finding updated" : "Finding submitted",
-      description: isEditing 
-        ? "Your finding has been updated successfully."
-        : "Your finding has been submitted for review.",
-    });
-    
-    // Reset form
-    setSeverity("");
-    setTitle("");
-    setContent(FINDING_TEMPLATE);
-    setIsSubmitting(false);
-    onOpenChange(false);
+    try {
+      await onSubmit({ severity, title, content });
+      
+      // Reset form only on success
+      setSeverity("");
+      setTitle("");
+      setContent(FINDING_TEMPLATE);
+      onOpenChange(false);
+    } catch (error) {
+      // Error handling is done in the parent component
+      // Just keep the dialog open so user can retry
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const selectedSeverity = severity ? severityConfig[severity] : null;

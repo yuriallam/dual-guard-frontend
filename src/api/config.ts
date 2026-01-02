@@ -29,9 +29,10 @@ export const API_ENDPOINTS = {
     BASE: '/contests',
     PAGINATED: '/contests/paginated',
     BY_ID: (id: number) => `/contests/${id}`,
-    JOIN: (id: number) => `/contests/${id}/join`,
+    JOIN: '/contests/join',
     LEAVE: (id: number) => `/contests/${id}/leave`,
     PARTICIPANTS: (id: number) => `/contests/${id}/participants`,
+    PARTICIPATION: (id: number) => `/contests/${id}/participation`,
     ACTIVE_UPCOMING: '/contests/active-upcoming',
   },
   // Issues

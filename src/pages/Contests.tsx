@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ContestCard from "@/components/ContestCard";
@@ -21,9 +21,63 @@ const statusFilters: { value: FilterStatus; label: string; apiValue?: string }[]
 ];
 
 const Contests = () => {
-  const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isNavbarVisible, setIsNavbarVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const limit = 12;
+
+  // Track navbar visibility (same logic as Navbar component)
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (currentScrollY < 100) {
+        setIsNavbarVisible(true);
+      } else if (currentScrollY > lastScrollY) {
+        setIsNavbarVisible(false);
+      } else {
+        setIsNavbarVisible(true);
+      }
+
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
+
+  // Get values from URL params or use defaults
+  const activeFilter = useMemo(() => {
+    const status = searchParams.get('status');
+    if (status && statusFilters.some(f => f.value === status)) {
+      return status as FilterStatus;
+    }
+    return 'all';
+  }, [searchParams]);
+
+  const page = useMemo(() => {
+    const pageParam = searchParams.get('page');
+    const parsed = pageParam ? parseInt(pageParam, 10) : 1;
+    return isNaN(parsed) || parsed < 1 ? 1 : parsed;
+  }, [searchParams]);
+
+  // Update URL params when filter or page changes
+  const updateFilter = (filter: FilterStatus) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (filter === 'all') {
+      newParams.delete('status');
+    } else {
+      newParams.set('status', filter);
+    }
+    newParams.set('page', '1'); // Reset to page 1 when filter changes
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const updatePage = (newPage: number) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('page', newPage.toString());
+    setSearchParams(newParams, { replace: true });
+  };
 
   const { data, isLoading, error } = usePaginatedContests({
     page,
@@ -57,16 +111,17 @@ const Contests = () => {
       </section>
 
       {/* Filters */}
-      <section className="sticky top-16 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+      <section 
+        className={`sticky z-40 border-b border-border bg-background/80 backdrop-blur-xl transition-all duration-300 ${
+          isNavbarVisible ? 'top-16' : 'top-0'
+        }`}
+      >
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-2 overflow-x-auto py-4 scrollbar-hide">
             {statusFilters.map((filter) => (
               <button
                 key={filter.value}
-                onClick={() => {
-                  setActiveFilter(filter.value);
-                  setPage(1); // Reset to first page when filter changes
-                }}
+                onClick={() => updateFilter(filter.value)}
                 className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
                   activeFilter === filter.value
                     ? 'bg-gradient-primary text-primary-foreground'
@@ -123,7 +178,7 @@ const Contests = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    onClick={() => updatePage(Math.max(1, page - 1))}
                     disabled={page === 1 || isLoading}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -139,7 +194,7 @@ const Contests = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                    onClick={() => updatePage(Math.min(pagination.totalPages, page + 1))}
                     disabled={page === pagination.totalPages || isLoading}
                   >
                     Next

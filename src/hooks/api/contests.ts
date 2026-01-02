@@ -7,6 +7,7 @@ import type {
   CreateContestPayload,
   UpdateContestPayload,
 } from "@/types/entities/contest";
+import type { UserParticipationResponse } from "@/types/api/contest-participation";
 import {
   useInfiniteQuery,
   useMutation,
@@ -166,6 +167,16 @@ export const usePaginatedContests = (params?: QueryParams) => {
   return useQuery({
     queryKey: [...queryKeys.contests.list(params), 'paginated'],
     queryFn: () => contestsApi.getPaginated(params),
+    staleTime: 30 * 1000, // 30 seconds
+  });
+};
+
+// Get user participation in contest
+export const useContestParticipation = (contestId: number, enabled = true) => {
+  return useQuery({
+    queryKey: [...queryKeys.contests.detail(contestId), 'participation'],
+    queryFn: () => contestsApi.getMyParticipation(contestId),
+    enabled: enabled && !!contestId,
     staleTime: 30 * 1000, // 30 seconds
   });
 };
