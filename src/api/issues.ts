@@ -5,6 +5,7 @@ import type {
   IssueWithRelations,
   CreateIssuePayload,
   UpdateIssuePayload,
+  UpdateIssueByAuditorPayload,
   IssueComment,
   IssueCommentWithRelations,
   CreateIssueCommentPayload,
@@ -154,6 +155,23 @@ export const issuesApi = {
       API_ENDPOINTS.ISSUES.ESCALATION(id),
       payload,
     );
+  },
+
+  // Update issue by auditor
+  updateByAuditor: async (
+    id: number,
+    payload: UpdateIssueByAuditorPayload,
+  ): Promise<Issue> => {
+    return api.patch<Issue>(API_ENDPOINTS.ISSUES.BY_AUDITOR(id), payload);
+  },
+
+  // Delete issue by auditor
+  deleteByAuditor: async (id: number): Promise<void> => {
+    return api.delete<void>(API_ENDPOINTS.ISSUES.BY_AUDITOR(id), {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   },
 };
 

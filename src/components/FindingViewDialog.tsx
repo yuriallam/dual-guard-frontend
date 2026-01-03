@@ -5,21 +5,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Finding, Severity, severityLabels, severityColors } from "@/types/finding";
+import {  severityLabels, severityColors, SeverityEnum } from "@/types/finding";
+import { UserIssue } from "@/types/api/contest-participation";
 
 interface FindingViewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  finding: Finding | null;
+  finding: UserIssue | null;
   isAnonymous: boolean;
 }
 
-const severityIcons: Record<Severity, typeof AlertTriangle> = {
-  critical: ShieldAlert,
-  high: AlertTriangle,
-  medium: AlertCircle,
-  low: Info,
-  informational: Info,
+const severityIcons: Record<SeverityEnum, typeof AlertTriangle> = {
+  [SeverityEnum.HIGH]: AlertTriangle,
+  [SeverityEnum.MEDIUM]: AlertCircle,
+  [SeverityEnum.LOW]: Info,
 };
 
 const FindingViewDialog = ({ open, onOpenChange, finding, isAnonymous }: FindingViewDialogProps) => {
@@ -63,12 +62,12 @@ const FindingViewDialog = ({ open, onOpenChange, finding, isAnonymous }: Finding
             </span>
           </div>
           <DialogTitle className="font-display text-xl mt-2">
-            {isAnonymous ? `Finding #${finding.id.slice(-6)}` : finding.title}
+            {isAnonymous ? `Finding #${finding.id}` : finding.title}
           </DialogTitle>
         </DialogHeader>
 
         <div className="mt-4 prose prose-invert max-w-none">
-          {renderContent(finding.content)}
+          {renderContent(finding.description)}
         </div>
 
         {!isAnonymous && (

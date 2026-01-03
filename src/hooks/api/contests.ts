@@ -158,7 +158,7 @@ export const useActiveAndUpcomingContests = () => {
   return useQuery({
     queryKey: queryKeys.contests.activeUpcoming(),
     queryFn: () => contestsApi.getActiveAndUpcoming(),
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 60 * 1000 * 5, // 5 minutes
   });
 };
 

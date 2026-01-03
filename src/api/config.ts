@@ -39,6 +39,7 @@ export const API_ENDPOINTS = {
   ISSUES: {
     BASE: '/issues',
     BY_ID: (id: number) => `/issues/${id}`,
+    BY_AUDITOR: (id: number) => `/issues/${id}/auditor`,
     BY_CONTEST: (contestId: number) => `/contests/${contestId}/issues`,
     COMMENTS: (id: number) => `/issues/${id}/comments`,
     ESCALATION: (id: number) => `/issues/${id}/escalation`,

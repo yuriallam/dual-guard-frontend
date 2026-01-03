@@ -47,8 +47,7 @@ export interface Contest {
 
 // Contest with relations
 export interface ContestWithRelations extends Contest {
-  sponsor?: import('./user').User;
-  participantCount?: number;
+  auditorsCount?: number;
   issueCount?: number;
 }
 

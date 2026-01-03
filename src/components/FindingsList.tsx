@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Folder, FileText, Edit2, Trash2, ChevronRight, ChevronDown, Eye } from "lucide-react";
-import { Finding, Severity, severityLabels, severityColors, severityOrder } from "@/types/finding";
+import { SeverityEnum, severityLabels, severityColors, severityOrder } from "@/types/finding";
 import { Button } from "@/components/ui/button";
-import { useMockUserId } from "@/hooks/use-findings";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,21 +13,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import FindingViewDialog from "./FindingViewDialog";
+import { useAuth } from "@/hooks/use-auth";
+import { UserIssue } from "@/types/api/contest-participation";
 
 interface FindingsListProps {
-  findings: Finding[];
+  findings: UserIssue[];
   isAnonymous: boolean; // true during judging phase
-  onEdit?: (finding: Finding) => void;
-  onDelete?: (id: string) => void;
+  onEdit?: (finding: UserIssue) => void;
+  onDelete?: (id: number) => void;
 }
 
 const FindingsList = ({ findings, isAnonymous, onEdit, onDelete }: FindingsListProps) => {
-  const currentUserId = useMockUserId();
-  const [expandedSeverities, setExpandedSeverities] = useState<Set<Severity>>(new Set(["critical", "high", "medium", "low", "informational"]));
+  const { user } = useAuth();
+  const [expandedSeverities, setExpandedSeverities] = useState<Set<SeverityEnum>>(new Set( Object.values(SeverityEnum)));
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [findingToDelete, setFindingToDelete] = useState<string | null>(null);
+  const [findingToDelete, setFindingToDelete] = useState<number | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const [selectedFinding, setSelectedFinding] = useState<UserIssue | null>(null);
 
   // Group findings by severity
   const groupedFindings = findings.reduce((acc, finding) => {
@@ -37,14 +38,14 @@ const FindingsList = ({ findings, isAnonymous, onEdit, onDelete }: FindingsListP
     }
     acc[finding.severity].push(finding);
     return acc;
-  }, {} as Record<Severity, Finding[]>);
+  }, {} as Record<SeverityEnum, UserIssue[]>);
 
   // Sort severities
-  const sortedSeverities = (Object.keys(groupedFindings) as Severity[]).sort(
+  const sortedSeverities = (Object.keys(groupedFindings) as SeverityEnum[]).sort(
     (a, b) => severityOrder[a] - severityOrder[b]
   );
 
-  const toggleSeverity = (severity: Severity) => {
+  const toggleSeverity = (severity: SeverityEnum) => {
     setExpandedSeverities(prev => {
       const newSet = new Set(prev);
       if (newSet.has(severity)) {
@@ -56,7 +57,7 @@ const FindingsList = ({ findings, isAnonymous, onEdit, onDelete }: FindingsListP
     });
   };
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = (id: number) => {
     setFindingToDelete(id);
     setDeleteDialogOpen(true);
   };
@@ -69,14 +70,9 @@ const FindingsList = ({ findings, isAnonymous, onEdit, onDelete }: FindingsListP
     setFindingToDelete(null);
   };
 
-  const handleViewClick = (finding: Finding) => {
+  const handleViewClick = (finding: UserIssue) => {
     setSelectedFinding(finding);
     setViewDialogOpen(true);
-  };
-
-  // Generate anonymous filename
-  const getAnonymousFilename = (finding: Finding, index: number) => {
-    return `${index + 1}.md`;
   };
 
   if (findings.length === 0) {
@@ -132,9 +128,9 @@ const FindingsList = ({ findings, isAnonymous, onEdit, onDelete }: FindingsListP
                 {isExpanded && (
                   <div className="bg-muted/20">
                     {severityFindings.map((finding, index) => {
-                      const isOwner = finding.authorId === currentUserId;
+                      const isOwner = finding.submittedBy === user?.id;
                       const displayName = isAnonymous 
-                        ? getAnonymousFilename(finding, index)
+                        ? finding.anonymousId
                         : finding.title;
 
                       return (

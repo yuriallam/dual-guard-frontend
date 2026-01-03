@@ -236,7 +236,6 @@ const SignUp = () => {
         const accounts = await ethereum.request({
           method: "eth_requestAccounts",
         });
-        console.log("Connected wallet:", accounts[0]);
       } else {
         alert("Please install MetaMask or another Web3 wallet");
       }

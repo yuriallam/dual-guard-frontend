@@ -1,4 +1,5 @@
 import type { IssueStatus, Severity } from '@/types/entities/enums';
+import { SeverityEnum } from '../finding';
 
 // Issue folder from participation response
 export interface IssueFolder {
@@ -10,9 +11,12 @@ export interface IssueFolder {
 
 // Issue from participation response (subset of full Issue)
 export interface UserIssue {
+  id: number;
+  submittedBy: number;
   title: string;
-  severity: Severity;
+  severity: SeverityEnum;
   isValid: boolean;
+  anonymousId: string | null;
   judgeSeverity: Severity | null;
   status: IssueStatus;
   description: string;

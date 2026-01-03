@@ -19,30 +19,31 @@ import {
 } from "@/components/ui/select";
 import MarkdownEditor from "./MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
-import { Finding, Severity } from "@/types/finding";
+import { UserIssue } from "@/types/api/contest-participation";
+import { SeverityEnum } from "@/types/finding";
 
 interface SubmitFindingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contestName: string;
-  onSubmit: (data: { severity: Severity; title: string; content: string }) => Promise<void>;
-  editingFinding?: Finding | null;
+  onSubmit: (data: { severity: SeverityEnum; title: string; content: string }) => Promise<void>;
+    editingFinding?: UserIssue | null;
 }
 
-const severityConfig: Record<Severity, { label: string; icon: typeof AlertTriangle; color: string; description: string }> = {
-  high: {
+const severityConfig: Record<SeverityEnum, { label: string; icon: typeof AlertTriangle; color: string; description: string }> = {
+  [SeverityEnum.HIGH]: {
     label: "High",
     icon: AlertTriangle,
     color: "text-destructive",
     description: "Significant impact on protocol functionality or funds at risk"
   },
-  medium: {
+  [SeverityEnum.MEDIUM]: {
     label: "Medium",
     icon: AlertCircle,
     color: "text-yellow-500",
     description: "Conditional impact or limited loss potential"
   },
-  low: {
+  [SeverityEnum.LOW]: {
     label: "Low",
     icon: Info,
     color: "text-blue-500",
@@ -73,7 +74,7 @@ Describe how to fix the vulnerability.
 
 const SubmitFindingDialog = ({ open, onOpenChange, contestName, onSubmit, editingFinding }: SubmitFindingDialogProps) => {
   const { toast } = useToast();
-  const [severity, setSeverity] = useState<Severity | "">("");
+  const [severity, setSeverity] = useState<SeverityEnum | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState(FINDING_TEMPLATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,9 +86,9 @@ const SubmitFindingDialog = ({ open, onOpenChange, contestName, onSubmit, editin
     if (editingFinding) {
       setSeverity(editingFinding.severity);
       setTitle(editingFinding.title);
-      setContent(editingFinding.content);
+      setContent(editingFinding.description);
     } else {
-      setSeverity("");
+      setSeverity(null);
       setTitle("");
       setContent(FINDING_TEMPLATE);
     }
@@ -111,7 +112,7 @@ const SubmitFindingDialog = ({ open, onOpenChange, contestName, onSubmit, editin
       await onSubmit({ severity, title, content });
       
       // Reset form only on success
-      setSeverity("");
+      setSeverity(null);
       setTitle("");
       setContent(FINDING_TEMPLATE);
       onOpenChange(false);
@@ -143,12 +144,12 @@ const SubmitFindingDialog = ({ open, onOpenChange, contestName, onSubmit, editin
           {/* Severity */}
           <div className="space-y-2">
             <Label htmlFor="severity">Severity *</Label>
-            <Select value={severity} onValueChange={(value) => setSeverity(value as Severity)}>
+            <Select value={severity} onValueChange={(value) => setSeverity(value as SeverityEnum)}>
               <SelectTrigger id="severity" className="w-full">
                 <SelectValue placeholder="Select severity level" />
               </SelectTrigger>
               <SelectContent>
-                {(Object.entries(severityConfig) as [Severity, typeof severityConfig[Severity]][]).map(([key, config]) => {
+                {(Object.entries(severityConfig) as [SeverityEnum, typeof severityConfig[SeverityEnum]][]).map(([key, config]) => {
                   const Icon = config.icon;
                   return (
                     <SelectItem key={key} value={key}>

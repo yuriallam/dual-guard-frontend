@@ -1,5 +1,6 @@
 import { IssueStatus, Severity } from './enums';
 import { CodeLocation } from './contest';
+import { SeverityEnum } from '../finding';
 
 // Issue entity
 export interface Issue {
@@ -45,7 +46,7 @@ export interface CreateIssuePayload {
   contestId: number;
   title: string;
   description: string;
-  severity: Severity;
+  severity: SeverityEnum;
   affectedContract?: string;
   vulnerableCodeSnippet?: string;
   codeLocation?: CodeLocation;
@@ -115,5 +116,12 @@ export interface CreateIssueEscalationCommentPayload {
 
 export interface UpdateIssueEscalationCommentPayload {
   judgeResponse: string;
+}
+
+// Update issue by auditor payload (limited fields)
+export interface UpdateIssueByAuditorPayload {
+  title?: string;
+  description?: string;
+  severity?: SeverityEnum;
 }
 

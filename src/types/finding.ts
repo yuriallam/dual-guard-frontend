@@ -1,30 +1,24 @@
-export type Severity =  "high" | "medium" | "low" ;
 
-export interface Finding {
-  id: string;
-  contestId: string;
-  severity: Severity;
-  title: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-  authorId: string; // For demo, we'll use a mock user ID
+export enum SeverityEnum {
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+  LOW = 'LOW',
 }
 
-export const severityOrder: Record<Severity, number> = {
-  high: 0,
-  medium: 1,
-  low: 2,
+export const severityOrder: Record<SeverityEnum, number> = {
+  [SeverityEnum.HIGH]: 0,
+  [SeverityEnum.MEDIUM]: 1,
+  [SeverityEnum.LOW]: 2,
 };
 
-export const severityLabels: Record<Severity, string> = {
-  high: "High",
-  medium: "Medium",
-  low: "Low",
+export const severityLabels: Record<SeverityEnum, string> = {
+  [SeverityEnum.HIGH]: "High",
+  [SeverityEnum.MEDIUM]: "Medium",
+  [SeverityEnum.LOW]: "Low",
 };
 
-export const severityColors: Record<Severity, string> = {
-  high: "bg-destructive/10 text-destructive border-destructive/30",
-  medium: "bg-yellow-500/10 text-yellow-500 border-yellow-500/30",
-  low: "bg-blue-500/10 text-blue-500 border-blue-500/30",
+export const severityColors: Record<SeverityEnum, string> = {
+  [SeverityEnum.HIGH]: "bg-destructive/10 text-destructive border-destructive/30",
+  [SeverityEnum.MEDIUM]: "bg-yellow-500/10 text-yellow-500 border-yellow-500/30",
+  [SeverityEnum.LOW]: "bg-blue-500/10 text-blue-500 border-blue-500/30",
 };

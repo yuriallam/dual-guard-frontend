@@ -6,44 +6,47 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContest, useContestParticipation, useJoinContest } from "@/hooks/api/contests";
-import { useCreateIssue } from "@/hooks/api/issues";
+import { useCreateIssue, useUpdateIssueByAuditor, useDeleteIssueByAuditor } from "@/hooks/api/issues";
 import { transformContestForDetail } from "@/lib/contests";
 import { statusColors, ContestStatusEnum, ContestStatusLabels } from "@/types/contest";
-import { Finding, Severity } from "@/types/finding";
 import { ReviewStatus } from "@/types/judge-review";
-import { useFindings, useMockUserId } from "@/hooks/use-findings";
 import { useJudgeReviews } from "@/hooks/use-judge-reviews";
 import SubmitFindingDialog from "@/components/SubmitFindingDialog";
 import FindingsList from "@/components/FindingsList";
-import JudgeReviewPanel from "@/components/JudgeReviewPanel";
 import { useAuth } from "@/hooks/use-auth";
 import type { UserIssue } from "@/types/api/contest-participation";
 import { useToast } from "@/hooks/use-toast";
-import type { Severity as BackendSeverity } from "@/types/entities/enums";
-
-// Map backend Severity enum to frontend Severity type
-const mapSeverity = (severity: string): Severity => {
-  const severityMap: Record<string, Severity> = {
-    'HIGH': 'high',
-    'MEDIUM': 'medium',
-    'LOW': 'low',
-  };
-  return severityMap[severity.toUpperCase()] || 'low';
-};
+import { SeverityEnum } from "@/types/finding";
 
 // Transform UserIssue to Finding format for compatibility with existing components
-const transformIssueToFinding = (issue: UserIssue, contestId: string): Finding => {
-  return {
-    id: `issue-${issue.createdAt}`, // Temporary ID based on timestamp
-    contestId,
-    severity: mapSeverity(issue.severity),
-    title: issue.title,
-    content: issue.description,
-    createdAt: issue.createdAt,
-    updatedAt: issue.updatedAt,
-    authorId: 'current-user', // Will be replaced with actual user ID
-  };
-};
+// Store original issue data in a map for API operations
+// const transformIssueToFinding = (
+//   issue: UserIssue, 
+//   contestId: string,
+//   issueIdMap: Map<string, { folderId: number | null; createdAt: string }>
+// ): Finding => {
+//   // Use folder ID if available, otherwise use timestamp-based ID
+//   const findingId = issue.folder?.id 
+//     ? `issue-${issue.folder.id}` 
+//     : `issue-${issue.createdAt}`;
+  
+//   // Store mapping for later API calls
+//   issueIdMap.set(findingId, {
+//     folderId: issue.folder?.id || null,
+//     createdAt: issue.createdAt,
+//   });
+  
+//   return {
+//     id: findingId,
+//     contestId,
+//     severity: mapSeverity(issue.severity),
+//     title: issue.title,
+//     content: issue.description,
+//     createdAt: issue.createdAt,
+//     updatedAt: issue.updatedAt,
+//     submittedBy: issue.submittedBy,
+//   };
+// };
 
 const ContestDetail = () => {
   const { id } = useParams();
@@ -57,21 +60,28 @@ const ContestDetail = () => {
   );
   const joinContestMutation = useJoinContest();
   const createIssueMutation = useCreateIssue();
+  const updateIssueMutation = useUpdateIssueByAuditor();
+  const deleteIssueMutation = useDeleteIssueByAuditor();
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
-  const [editingFinding, setEditingFinding] = useState<Finding | null>(null);
+  const [editingFinding, setEditingFinding] = useState<UserIssue | null>(null);
   
-  const { findings, createFinding, updateFinding, deleteFinding, getUserFindings } = useFindings(id || "");
+  // Map to store Finding ID -> Issue metadata (for API calls)
+  const issueIdMapRef = useMemo(() => new Map<number, { folderId: number | null; createdAt: string }>(), []);
+  
   const { reviews, getReviewForFinding, upsertReview } = useJudgeReviews(id || "");
-  const currentUserId = useMockUserId();
   
   // Mock: check if current user is a judge (for demo, we'll use a toggle or assume judge role in judging phase)
   const [isJudgeView, setIsJudgeView] = useState(false);
 
   // Transform API issues to Finding format
-  const userIssuesFromAPI = useMemo(() => {
-    if (!participation?.issuesSubmitted || !id) return [];
-    return participation.issuesSubmitted.map(issue => transformIssueToFinding(issue, id));
-  }, [participation?.issuesSubmitted, id]);
+  // const userIssuesFromAPI = useMemo(() => {
+  //   if (!participation?.issuesSubmitted || !id) return [];
+  //   // Clear and rebuild the map
+  //   issueIdMapRef.clear();
+  //   return participation.issuesSubmitted.map(issue => 
+  //     transformIssueToFinding(issue, id, issueIdMapRef)
+  //   );
+  // }, [participation?.issuesSubmitted, id, issueIdMapRef]);
 
   const isParticipating = participation?.participated ?? false;
 
@@ -115,10 +125,8 @@ const ContestDetail = () => {
 
   // Get appropriate findings based on contest status
   // Use API issues if available, otherwise fall back to mock data
-  const userFindings = isParticipating && userIssuesFromAPI.length > 0 
-    ? userIssuesFromAPI 
-    : getUserFindings();
-  const displayFindings = isJudging ? findings : userFindings;
+  const userFindings = isParticipating ? participation.issuesSubmitted : [];
+  // const displayFindings = isJudging ? findings : userFindings;
 
   const handleJoinContest = async () => {
     if (!contestId) return;
@@ -137,17 +145,7 @@ const ContestDetail = () => {
     }
   };
 
-  // Map frontend Severity to backend Severity enum
-  const mapSeverityToBackend = (severity: Severity): BackendSeverity => {
-    const severityMap: Record<Severity, BackendSeverity> = {
-      'high': 'HIGH',
-      'medium': 'MEDIUM',
-      'low': 'LOW',
-    };
-    return severityMap[severity];
-  };
-
-  const handleSubmitFinding = async (data: { severity: Severity; title: string; content: string }) => {
+  const handleSubmitFinding = async (data: { severity: SeverityEnum; title: string; content: string }) => {
     if (!contestId) {
       toast({
         title: "Error",
@@ -158,22 +156,37 @@ const ContestDetail = () => {
     }
 
     if (editingFinding) {
-      // TODO: Implement update issue API when available
-      // For now, use mock update (synchronous)
-      updateFinding(editingFinding.id, data);
-      setEditingFinding(null);
-      toast({
-        title: "Finding updated",
-        description: "Your finding has been updated successfully.",
-      });
-      // Return resolved promise for async compatibility
-      return Promise.resolve();
+      try {
+        await updateIssueMutation.mutateAsync({
+          id: editingFinding.id,
+          payload: {
+            title: data.title,
+            description: data.content,
+            severity: data.severity,
+          },
+        });
+        
+        toast({
+          title: "Finding updated",
+          description: "Your finding has been updated successfully.",
+        });
+        
+        setEditingFinding(null);
+        setSubmitDialogOpen(false);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to update finding. Please try again.",
+          variant: "destructive",
+        });
+        throw error;
+      }
     } else {
       await createIssueMutation.mutateAsync({
         contestId,
         title: data.title,
         description: data.content,
-        severity: mapSeverityToBackend(data.severity),
+        severity: data.severity,
       });
       
       toast({
@@ -183,13 +196,25 @@ const ContestDetail = () => {
     }
   };
 
-  const handleEditFinding = (finding: Finding) => {
+  const handleEditFinding = (finding: UserIssue) => {
     setEditingFinding(finding);
     setSubmitDialogOpen(true);
   };
 
-  const handleDeleteFinding = (findingId: string) => {
-    deleteFinding(findingId);
+  const handleDeleteFinding = async (findingId: number) => {
+    try {
+      await deleteIssueMutation.mutateAsync(findingId);
+      toast({
+        title: "Finding deleted",
+        description: "Your finding has been deleted successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete finding. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDialogClose = (open: boolean) => {
@@ -200,7 +225,7 @@ const ContestDetail = () => {
   };
 
   const handleReviewUpdate = (findingId: string, data: {
-    judgeSelectedSeverity: Severity;
+    judgeSelectedSeverity: SeverityEnum;
     comment: string;
     status: ReviewStatus;
   }) => {
@@ -378,19 +403,19 @@ const ContestDetail = () => {
                     
                     <TabsContent value="submissions">
                       <FindingsList
-                        findings={displayFindings}
+                        findings={userFindings}
                         isAnonymous={true}
                       />
                     </TabsContent>
                     
-                    <TabsContent value="judge">
+                    {/* <TabsContent value="judge">
                       <JudgeReviewPanel
                         findings={findings}
                         reviews={reviews}
                         onReviewUpdate={handleReviewUpdate}
                         getReviewForFinding={getReviewForFinding}
                       />
-                    </TabsContent>
+                    </TabsContent> */}
                   </Tabs>
                 </div>
               )}

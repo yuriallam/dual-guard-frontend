@@ -64,7 +64,7 @@ export const transformContestForCard = (contest: ContestWithRelations): Omit<Con
     startDate: formatShortDate(contest.startDate),
     endDate: formatShortDate(contest.endDate),
     status: mapContestStatus(contest.status),
-    participants: contest.participantCount || 0,
+    participants: contest.auditorsCount || 0,
     type: getContestType(contest),
   };
 };
@@ -79,7 +79,7 @@ export const transformContestForDetail = (contest: ContestWithRelations): Contes
     startDate: formatShortDate(contest.startDate),
     endDate: formatShortDate(contest.endDate),
     status: mapContestStatus(contest.status),
-    participants: contest.participantCount || 0,
+    participants: contest.auditorsCount || 0,
     type: getContestType(contest),
     description: contest.description || undefined,
     scope: contest.contractName ? [contest.contractName] : undefined,

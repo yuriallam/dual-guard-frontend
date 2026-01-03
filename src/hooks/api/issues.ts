@@ -7,9 +7,11 @@ import type {
   CreateIssuePayload,
   Issue,
   IssueWithRelations,
+  UpdateIssueByAuditorPayload,
   UpdateIssueEscalationCommentPayload,
   UpdateIssuePayload,
 } from "@/types/entities/issue";
+import type { UserParticipationResponse } from "@/types/api/contest-participation";
 import {
   useInfiniteQuery,
   useMutation,
@@ -265,6 +267,122 @@ export const useUpdateIssueEscalation = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.issues.detail(variables.issueId),
       });
+    },
+  });
+};
+
+// Update issue by auditor mutation
+export const useUpdateIssueByAuditor = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: UpdateIssueByAuditorPayload;
+    }) => issuesApi.updateByAuditor(id, payload),
+    onSuccess: (data, variables) => {
+      // Update the specific issue query
+      queryClient.setQueryData(queryKeys.issues.detail(variables.id), data);
+      // Invalidate issues list
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.lists() });
+      // Invalidate contest issues
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.issues.byContest(data.contestId),
+      });
+      // Invalidate participation to update user's submitted issues
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.contests.detail(data.contestId), 'participation'],
+      });
+    },
+  });
+};
+
+// Delete issue by auditor mutation
+export const useDeleteIssueByAuditor = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => issuesApi.deleteByAuditor(id),
+    onMutate: async (issueId) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key.includes('participation');
+        },
+      });
+
+      // Find all participation queries that might contain this issue
+      const participationQueries = queryClient.getQueriesData<UserParticipationResponse>({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key.includes('participation');
+        },
+      });
+
+      // Store previous values for rollback
+      const previousParticipations = new Map();
+
+      // Optimistically update each participation query
+      participationQueries.forEach(([queryKey, data]) => {
+        if (data) {
+          previousParticipations.set(queryKey, data);
+          
+          // Optimistically remove the issue from the participation response
+          const updatedData: UserParticipationResponse = {
+            ...data,
+            issuesSubmitted: data.issuesSubmitted.filter(issue => issue.id !== issueId),
+          };
+          
+          queryClient.setQueryData(queryKey, updatedData);
+        }
+      });
+
+      return { previousParticipations };
+    },
+    onError: (error, issueId, context) => {
+      // Rollback optimistic updates on error
+      if (context?.previousParticipations) {
+        context.previousParticipations.forEach((data, queryKey) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: async (_, error, issueId) => {
+      // Get the issue to know which contest it belonged to
+      const issue = queryClient.getQueryData<IssueWithRelations>(
+        queryKeys.issues.detail(issueId)
+      );
+
+      // Remove the specific issue query
+      queryClient.removeQueries({ queryKey: queryKeys.issues.detail(issueId) });
+      // Invalidate issues list
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.lists() });
+
+      // If we know the contest, invalidate its issues and participation
+      if (issue?.contestId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.issues.byContest(issue.contestId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.contests.detail(issue.contestId),
+        });
+        // Invalidate participation to ensure consistency (optimistic update already done)
+        queryClient.invalidateQueries({
+          queryKey: [...queryKeys.contests.detail(issue.contestId), 'participation'],
+        });
+      } else {
+        // If we don't know the contest, invalidate all participation queries
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey;
+            return Array.isArray(key) && key.includes('participation');
+          },
+        });
+      }
     },
   });
 };
